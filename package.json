@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint .",
     "seed:admin": "node --loader ts-node/esm scripts/seed-admin-user.ts",
+    "seed:users": "node --loader ts-node/esm scripts/seed-users.ts",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
