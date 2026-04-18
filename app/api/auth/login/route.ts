@@ -27,15 +27,33 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user in unified users table
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    })
+    let user
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+      })
+    } catch (dbError) {
+      console.error("[AUTH] Database error during user lookup:", dbError)
+      return NextResponse.json(
+        { error: "Database error. Please try again later." },
+        { status: 503 }
+      )
+    }
 
     // If not found in users table, try legacy admin_profiles table
     if (!user) {
-      const adminProfile = await prisma.adminProfile.findUnique({
-        where: { email: email.toLowerCase() },
-      })
+      let adminProfile
+      try {
+        adminProfile = await prisma.adminProfile.findUnique({
+          where: { email: email.toLowerCase() },
+        })
+      } catch (dbError) {
+        console.error("[AUTH] Database error during admin lookup:", dbError)
+        return NextResponse.json(
+          { error: "Database error. Please try again later." },
+          { status: 503 }
+        )
+      }
 
         if (adminProfile) {
         // Verify password
