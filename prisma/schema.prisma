@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Admin Users
+model AdminProfile {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  username       String    @unique
+  displayName    String
+  hashedPassword String
+  role           String    @default("admin")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastLogin      DateTime?
+
+  @@map("admin_profiles")
+  @@index([email])
+}
+
+// Customers
+model Customer {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  phone     String?
+  company   String?
+  address   Json?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+  customConfigs CustomConfig[]
+  invoices Invoice[]
+  payments Payment[]
+
+  @@map("customers")
+  @@index([email])
+}
+
+// VPS Products
+model Product {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  description      String?
+  category         String   @default("vps")
+  cpuCores         Int
+  ramGb            Int
+  storageGb        Int
+  storageType      String   @default("nvme")
+  bandwidthTb      Decimal  @db.Decimal(10, 2)
+  price1m          Decimal  @db.Decimal(10, 2)
+  price3m          Decimal? @db.Decimal(10, 2)
+  price6m          Decimal? @db.Decimal(10, 2)
+  price12m         Decimal? @db.Decimal(10, 2)
+  price24m         Decimal? @db.Decimal(10, 2)
+  priceHourly      Decimal? @db.Decimal(10, 4)
+  isActive         Boolean  @default(true)
+  isFeatured       Boolean  @default(false)
+  sortOrder        Int      @default(0)
+  features         Json     @default("[]")
+  // Multi-disk support: JSON array of disk configurations
+  // Format: [{ type: "nvme" | "ssd", sizeGb: number, label?: string }]
+  disks            Json     @default("[{\"type\":\"nvme\",\"sizeGb\":160}]")
+  metadata         Json     @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  orders Order[]
+
+  @@map("products")
+  @@index([category])
+  @@index([isActive])
+}
+
+// Custom VPS Configurations
+model CustomConfig {
+  id              String    @id @default(cuid())
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  cpuCores        Int
+  ramGb           Int
+  // Multi-disk storage: JSON array instead of single storage field
+  // Format: [{ type: "nvme" | "ssd", sizeGb: number, label: "Disk 1" }]
+  disks           Json      @default("[{\"type\":\"nvme\",\"sizeGb\":160,\"label\":\"Disk 1\"}]")
+  bandwidthTb     Decimal?  @db.Decimal(10, 2)
+  termMonths      Int       @default(1)
+  monthlyPrice    Decimal   @db.Decimal(10, 2)
+  totalPrice      Decimal   @db.Decimal(10, 2)
+  status          String    @default("draft")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  orders Order[]
+
+  @@map("custom_configs")
+  @@index([customerId])
+  @@index([status])
+}
+
+// Orders
+model Order {
+  id               String    @id @default(cuid())
+  orderNumber      String    @unique
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
+  productId        String?
+  product          Product?  @relation(fields: [productId], references: [id])
+  customConfigId   String?
+  customConfig     CustomConfig? @relation(fields: [customConfigId], references: [id])
+  termMonths       Int       @default(1)
+  unitPrice        Decimal   @db.Decimal(10, 2)
+  quantity         Int       @default(1)
+  subtotal         Decimal   @db.Decimal(10, 2)
+  taxAmount        Decimal   @default(0) @db.Decimal(10, 2)
+  discountAmount   Decimal   @default(0) @db.Decimal(10, 2)
+  totalAmount      Decimal   @db.Decimal(10, 2)
+  currency         String    @default("INR")
+  status           String    @default("pending")
+  notes            String?
+  metadata         Json      @default("{}")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  invoices Invoice[]
+  payments Payment[]
+
+  @@map("orders")
+  @@index([customerId])
+  @@index([status])
+}
+
+// Invoices
+model Invoice {
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique
+  orderId         String?
+  order           Order?   @relation(fields: [orderId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  issueDate       DateTime @default(now()) @db.Date()
+  dueDate         DateTime @db.Date()
+  subtotal        Decimal  @db.Decimal(10, 2)
+  taxRate         Decimal  @default(18.00) @db.Decimal(5, 2)
+  taxAmount       Decimal  @db.Decimal(10, 2)
+  discountAmount  Decimal  @default(0) @db.Decimal(10, 2)
+  totalAmount     Decimal  @db.Decimal(10, 2)
+  currency        String   @default("INR")
+  status          String   @default("draft")
+  lineItems       Json     @default("[]")
+  billingAddress  Json?
+  notes           String?
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  paidAt          DateTime?
+
+  payments Payment[]
+
+  @@map("invoices")
+  @@index([customerId])
+  @@index([status])
+}
+
+// Payments (Cashfree Integration)
+model Payment {
+  id                  String    @id @default(cuid())
+  orderId             String?
+  order               Order?    @relation(fields: [orderId], references: [id])
+  invoiceId           String?
+  invoice             Invoice?  @relation(fields: [invoiceId], references: [id])
+  customerId          String?
+  customer            Customer? @relation(fields: [customerId], references: [id])
+  gateway             String    @default("cashfree")
+  gatewayOrderId      String?
+  gatewayPaymentId    String?
+  gatewaySessionId    String?
+  amount              Decimal   @db.Decimal(10, 2)
+  currency            String    @default("INR")
+  status              String    @default("pending")
+  paymentMethod       String?
+  paymentMethodDetails Json?
+  gatewayResponse     Json?
+  errorMessage        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  completedAt         DateTime?
+
+  @@map("payments")
+  @@index([orderId])
+  @@index([status])
+}
+
+// Analytics Events
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  eventType  String
+  eventName  String
+  pagePath   String?
+  referrer   String?
+  sessionId  String?
+  userAgent  String?
+  ipAddress  String?
+  country    String?
+  city       String?
+  properties Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@map("analytics_events")
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+// Admin Settings
+model AdminSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  description String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin_settings")
+}
