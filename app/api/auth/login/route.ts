@@ -5,6 +5,17 @@ import { createToken, setAuthCookie, type AuthUser } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify database is configured
+    if (!process.env.DATABASE_URL) {
+      console.error(
+        "[AUTH] DATABASE_URL not configured. Configure DATABASE_URL in environment variables."
+      )
+      return NextResponse.json(
+        { error: "Database configuration error. Please contact administrator." },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { email, password } = body
 
@@ -26,11 +37,10 @@ export async function POST(request: NextRequest) {
         where: { email: email.toLowerCase() },
       })
 
-      if (adminProfile) {
+        if (adminProfile) {
         // Verify password
         const isValid = await bcrypt.compare(password, adminProfile.hashedPassword)
         if (!isValid) {
-          await logLoginAttempt(email, false, request)
           return NextResponse.json(
             { error: "Invalid credentials" },
             { status: 401 }
@@ -54,8 +64,6 @@ export async function POST(request: NextRequest) {
           data: { lastLogin: new Date() },
         })
 
-        await logLoginAttempt(email, true, request)
-
         return NextResponse.json({
           success: true,
           user: authUser,
@@ -63,7 +71,6 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      await logLoginAttempt(email, false, request)
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
@@ -74,7 +81,6 @@ export async function POST(request: NextRequest) {
     const isValid = await bcrypt.compare(password, user.hashedPassword)
 
     if (!isValid) {
-      await logLoginAttempt(email, false, request)
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
@@ -99,43 +105,21 @@ export async function POST(request: NextRequest) {
       data: { lastLogin: new Date() },
     })
 
-    await logLoginAttempt(email, true, request)
-
     return NextResponse.json({
       success: true,
       user: authUser,
       redirectTo: "/client-area",
     })
   } catch (error) {
-    console.error("Login error:", error)
+    console.error("[AUTH] Login error:", error)
+    const errorMessage =
+      error instanceof Error ? error.message : "Internal server error"
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: errorMessage },
       { status: 500 }
     )
   }
 }
 
-async function logLoginAttempt(
-  email: string,
-  success: boolean,
-  request: NextRequest
-) {
-  try {
-    const userAgent = request.headers.get("user-agent") || ""
-    const forwardedFor = request.headers.get("x-forwarded-for")
-    const realIp = request.headers.get("x-real-ip")
-    const ipAddress = forwardedFor?.split(",")[0]?.trim() || realIp || null
+// Remove the old logLoginAttempt function since we're not using analytics in login
 
-    await prisma.analyticsEvent.create({
-      data: {
-        eventType: "auth",
-        eventName: success ? "login_success" : "login_failed",
-        properties: { email },
-        userAgent,
-        ipAddress,
-      },
-    })
-  } catch {
-    // Silent fail - don't break login for analytics
-  }
-}
