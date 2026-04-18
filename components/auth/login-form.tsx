@@ -77,11 +77,12 @@ export function LoginForm() {
 
       setState({ status: "success" })
       
-      // Redirect to client area after successful login
+      // Use window.location to force full page reload so Set-Cookie header is processed
+      // This ensures the auth cookie is available before middleware checks it
+      const redirectTo = data.redirectTo || "/client-area"
       setTimeout(() => {
-        router.push(data.redirectTo || "/client-area")
-        router.refresh()
-      }, 500)
+        window.location.href = redirectTo
+      }, 1000)
     } catch {
       setState({
         status: "error",
