@@ -1,7 +1,6 @@
 import { Metadata } from "next"
-import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
-import { jwtVerify } from "jose"
+import { getSession, isAdmin } from "@/lib/auth"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { AdminHeader } from "@/components/admin/admin-header"
 
@@ -11,39 +10,27 @@ export const metadata: Metadata = {
   robots: "noindex, nofollow",
 }
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "zws-cloud-admin-secret-key-change-in-production"
-)
-
-async function getAdminUser() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("admin_token")?.value
-
-  if (!token) {
-    return null
-  }
-
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
-    return {
-      email: payload.email as string,
-      displayName: payload.displayName as string,
-      role: payload.role as string,
-    }
-  } catch {
-    return null
-  }
-}
-
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const user = await getAdminUser()
+  const session = await getSession()
 
-  if (!user) {
-    redirect("/zwsloginsam")
+  // Redirect to login if not authenticated
+  if (!session) {
+    redirect("/login?redirect=/admin")
+  }
+
+  // Redirect to client area if not admin
+  if (!isAdmin(session)) {
+    redirect("/client-area")
+  }
+
+  const user = {
+    email: session.email,
+    displayName: session.name || session.email.split("@")[0],
+    role: session.role,
   }
 
   return (

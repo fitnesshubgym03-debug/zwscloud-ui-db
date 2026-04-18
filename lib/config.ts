@@ -76,7 +76,7 @@ export const config = {
       email: getEnvVariable('ADMIN_EMAIL', 'admin@example.com'),
       password: getEnvVariable('ADMIN_PASSWORD', ''),
       displayName: getEnvVariable('ADMIN_DISPLAY_NAME', 'Administrator'),
-      jwtSecret: getEnvVariable('JWT_SECRET', 'dev-secret-change-in-production'),
+      // JWT_SECRET should only be in env vars, never returned as config
       sessionTimeout: getEnvNumber('SESSION_TIMEOUT_MINUTES', 1440),
       maxLoginAttempts: getEnvNumber('MAX_LOGIN_ATTEMPTS', 5),
       lockoutDuration: getEnvNumber('LOCKOUT_DURATION_MINUTES', 15),
@@ -173,9 +173,8 @@ export function validateConfig(): void {
     if (!process.env.ADMIN_PASSWORD) {
       warnings.push('ADMIN_PASSWORD not set - auth may fail')
     }
-    if (!process.env.JWT_SECRET) {
-      warnings.push('JWT_SECRET not set - using dev default')
-    }
+    // JWT_SECRET is critical for auth but should NOT be checked in code
+    // it must be set via environment variables only
 
     // Optional services
     if (!process.env.REDIS_URL) {

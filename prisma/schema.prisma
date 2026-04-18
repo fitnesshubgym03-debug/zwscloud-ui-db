@@ -3,11 +3,32 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Admin Users
+// Unified User model for both admins and regular users
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  hashedPassword String
+  role           String    @default("user") // "user" | "admin" | "super_admin"
+  emailVerified  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastLogin      DateTime?
+  
+  // Optional link to customer record for billing
+  customerId     String?   @unique
+  customer       Customer? @relation(fields: [customerId], references: [id])
+
+  @@map("users")
+  @@index([email])
+  @@index([role])
+}
+
+// Legacy Admin Users (keeping for migration compatibility)
 model AdminProfile {
   id             String    @id @default(cuid())
   email          String    @unique
@@ -39,6 +60,7 @@ model Customer {
   customConfigs CustomConfig[]
   invoices Invoice[]
   payments Payment[]
+  user User?
 
   @@map("customers")
   @@index([email])

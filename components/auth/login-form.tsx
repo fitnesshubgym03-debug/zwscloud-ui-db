@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { AlertCircle, ArrowRight, CheckCircle2, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -21,16 +22,8 @@ type FormState =
   | { status: "error"; message: string }
   | { status: "success" }
 
-// NOTE (for Codex): when wiring up the real backend, replace the
-// simulated delay + hardcoded credentials check with a POST to
-// /api/auth/login and route on the response. The form already exposes
-// all the state transitions (idle -> submitting -> success | error).
-const DEMO_CREDENTIALS = {
-  email: "demo@zws.cloud",
-  password: "Password123!",
-}
-
 export function LoginForm() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -62,17 +55,37 @@ export function LoginForm() {
     if (!isValidEmail(email) || password.length === 0) return
 
     setState({ status: "submitting" })
-    await new Promise((r) => setTimeout(r, 900))
 
-    if (
-      email.toLowerCase() === DEMO_CREDENTIALS.email &&
-      password === DEMO_CREDENTIALS.password
-    ) {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setState({
+          status: "error",
+          message: data.error || "Invalid email or password.",
+        })
+        return
+      }
+
       setState({ status: "success" })
-    } else {
+      
+      // Redirect to client area after successful login
+      setTimeout(() => {
+        router.push(data.redirectTo || "/client-area")
+        router.refresh()
+      }, 500)
+    } catch {
       setState({
         status: "error",
-        message: "Invalid email or password. Try demo@zws.cloud / Password123!",
+        message: "An error occurred. Please try again.",
       })
     }
   }
@@ -94,7 +107,7 @@ export function LoginForm() {
           className="flex items-start gap-2 rounded-lg border border-accent/40 bg-accent/10 p-3 text-sm text-accent"
         >
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>Signed in. Redirecting to your dashboard…</span>
+          <span>Signed in successfully. Redirecting to your dashboard...</span>
         </div>
       )}
 
