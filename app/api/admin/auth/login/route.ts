@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 import { SignJWT } from "jose"
 import bcrypt from "bcryptjs"
 import { getAdminByEmail, updateAdminLastLogin, logAnalyticsEvent } from "@/lib/neon"
@@ -59,17 +58,8 @@ export async function POST(request: NextRequest) {
       .setExpirationTime("24h")
       .sign(JWT_SECRET)
 
-    // Set HTTP-only cookie
-    const cookieStore = await cookies()
-    cookieStore.set("admin_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24,
-      path: "/",
-    })
-
-    return NextResponse.json({
+    // Create response with cookie
+    const response = NextResponse.json({
       success: true,
       user: {
         email: adminUser.email,
@@ -77,6 +67,17 @@ export async function POST(request: NextRequest) {
         role: "super_admin",
       },
     })
+
+    // Set HTTP-only cookie on the response
+    response.cookies.set("admin_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24,
+      path: "/",
+    })
+
+    return response
   } catch (error) {
     console.error("Admin login error:", error)
     return NextResponse.json(

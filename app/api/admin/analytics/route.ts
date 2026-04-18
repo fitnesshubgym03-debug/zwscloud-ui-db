@@ -28,7 +28,7 @@ export async function GET() {
 
     // Calculate top pages
     const pageViewCounts: Record<string, number> = {}
-    pageViews.forEach((pv: { page_path: string | null }) => {
+    ;(pageViews as Array<{ page_path: string | null }>).forEach((pv) => {
       if (pv.page_path) {
         pageViewCounts[pv.page_path] = (pageViewCounts[pv.page_path] || 0) + 1
       }
@@ -40,7 +40,7 @@ export async function GET() {
 
     // Calculate event type distribution
     const eventTypeCounts: Record<string, number> = {}
-    eventsByType.forEach((e: { event_type: string }) => {
+    ;(eventsByType as Array<{ event_type: string }>).forEach((e) => {
       eventTypeCounts[e.event_type] = (eventTypeCounts[e.event_type] || 0) + 1
     })
     const eventDistribution = Object.entries(eventTypeCounts)

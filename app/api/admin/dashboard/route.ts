@@ -22,8 +22,8 @@ export async function GET() {
       sql`SELECT amount FROM payments WHERE status = 'completed'`,
     ])
 
-    const totalRevenue = completedPaymentRecords.reduce(
-      (sum: number, p: { amount: string }) => sum + Number(p.amount),
+    const totalRevenue = (completedPaymentRecords as Array<{ amount: string }>).reduce(
+      (sum, p) => sum + Number(p.amount),
       0
     )
 

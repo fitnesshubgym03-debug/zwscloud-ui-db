@@ -72,9 +72,9 @@ export function AdminLoginForm() {
 
       setState({ status: "success" })
       
-      // Redirect to admin dashboard
+      // Redirect to admin dashboard using window.location for proper cookie handling
       setTimeout(() => {
-        router.push("/admin")
+        window.location.href = "/admin"
       }, 800)
     } catch {
       setState({
