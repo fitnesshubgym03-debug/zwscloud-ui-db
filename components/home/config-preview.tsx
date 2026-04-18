@@ -12,14 +12,14 @@ import { Label } from "@/components/ui/label"
 import { billingCycleMultiplier, type BillingCycle } from "@/data/plans"
 
 export function ConfigPreview() {
-  const [cpu, setCpu] = useState<number[]>([4])
-  const [ram, setRam] = useState<number[]>([8])
-  const [storage, setStorage] = useState<number[]>([160])
+  const [cpu, setCpu] = useState<number>(4)
+  const [ram, setRam] = useState<number>(8)
+  const [storage, setStorage] = useState<number>(160)
   const [cycle, setCycle] = useState<BillingCycle>("monthly")
 
   const basePerMonth = useMemo(() => {
     // Simple demo pricing formula (INR).
-    return cpu[0] * 250 + ram[0] * 60 + storage[0] * 4
+    return cpu * 250 + ram * 60 + storage * 4
   }, [cpu, ram, storage])
 
   const total = Math.round(basePerMonth * billingCycleMultiplier[cycle])
@@ -41,31 +41,31 @@ export function ConfigPreview() {
                 icon={Cpu}
                 label="vCPU"
                 unit="cores"
-                value={cpu[0]}
+                value={cpu}
                 min={1}
                 max={32}
                 step={1}
-                onChange={setCpu}
+                onChange={(v) => setCpu(v[0])}
               />
               <ConfigSlider
                 icon={MemoryStick}
                 label="Memory"
                 unit="GB"
-                value={ram[0]}
+                value={ram}
                 min={2}
                 max={128}
                 step={2}
-                onChange={setRam}
+                onChange={(v) => setRam(v[0])}
               />
               <ConfigSlider
                 icon={HardDrive}
                 label="Storage"
                 unit="GB NVMe"
-                value={storage[0]}
+                value={storage}
                 min={40}
                 max={1000}
                 step={20}
-                onChange={setStorage}
+                onChange={(v) => setStorage(v[0])}
               />
 
               <div className="flex flex-col gap-3">
@@ -122,16 +122,16 @@ export function ConfigPreview() {
             </p>
 
             <dl className="mt-6 flex flex-col gap-3 pt-5 text-sm">
-              <Row k="vCPU" v={`${cpu[0]} cores`} />
-              <Row k="Memory" v={`${ram[0]} GB`} />
-              <Row k="Storage" v={`${storage[0]} GB NVMe`} />
+              <Row k="vCPU" v={`${cpu} cores`} />
+              <Row k="Memory" v={`${ram} GB`} />
+              <Row k="Storage" v={`${storage} GB NVMe`} />
               <Row k="Bandwidth" v="Unmetered @ 1 Gbps" />
             </dl>
 
             <div className="mt-8 flex flex-col gap-2">
               <Button asChild className="w-full gap-1.5">
                 <Link
-                  href={`/configure?cpu=${cpu[0]}&ram=${ram[0]}&storage=${storage[0]}&cycle=${cycle}`}
+                  href={`/configure?cpu=${cpu}&ram=${ram}&storage=${storage}&cycle=${cycle}`}
                 >
                   Continue to configurator
                   <ArrowRight className="h-4 w-4" />
