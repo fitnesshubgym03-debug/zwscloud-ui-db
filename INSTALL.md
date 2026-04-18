@@ -54,7 +54,7 @@ cd /var/www/zws
 Replace `GITHUB_REPO_URL` with your actual GitHub repository URL:
 
 ```bash
-sudo git clone https://github.com/fitnesshubgym03-debug/v0-sam.git .
+sudo git clone https://github.com/fitnesshubgym03-debug/zwscloud-ui-db.git .
 ```
 
 If you need to update later:
