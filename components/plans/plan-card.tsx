@@ -74,12 +74,14 @@ export function PlanCard({
       </div>
 
       {/* Specs */}
-      <dl className="mt-6 grid grid-cols-2 gap-3 rounded-xl bg-foreground/[0.03] p-4 text-sm">
-        <Spec label="vCPU" value={`${plan.vcpu} cores`} />
-        <Spec label="RAM" value={`${plan.ramGB} GB`} />
-        <Spec label="Storage" value={`${plan.storageGB} GB NVMe`} />
-        <Spec label="Bandwidth" value={`${plan.bandwidthTB} TB`} />
-      </dl>
+      <div className="mt-6 rounded-xl bg-foreground/[0.05] p-5 backdrop-blur-sm">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-5">
+          <Spec label="vCPU" value={`${plan.vcpu} cores`} />
+          <Spec label="RAM" value={`${plan.ramGB} GB`} />
+          <Spec label="Storage" value={`${plan.storageGB} GB NVMe`} />
+          <Spec label="Bandwidth" value={`${plan.bandwidthTB} TB`} />
+        </dl>
+      </div>
 
       {/* Features */}
       <ul className="mt-5 flex flex-col gap-2.5 text-sm">
@@ -110,11 +112,13 @@ export function PlanCard({
 
 function Spec({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+    <div className="flex flex-col">
+      <dt className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70">
         {label}
       </dt>
-      <dd className="mt-1 font-medium text-foreground">{value}</dd>
+      <dd className="mt-2 text-lg font-bold leading-tight text-foreground">
+        {value}
+      </dd>
     </div>
   )
 }
