@@ -4,12 +4,21 @@ import { SignJWT } from "jose"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/db"
 
+// JWT_SECRET must be set in environment variables - never hardcode
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "zws-cloud-admin-secret-key-change-in-production"
+  process.env.JWT_SECRET || ""
 )
 
 export async function POST(request: NextRequest) {
   try {
+    if (!process.env.JWT_SECRET) {
+      console.error("[AUTH] JWT_SECRET not configured")
+      return NextResponse.json(
+        { error: "Authentication system not configured. Please contact administrator." },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { email, password } = body
 
@@ -26,7 +35,6 @@ export async function POST(request: NextRequest) {
     })
 
     if (!adminUser) {
-      await logLoginAttempt(email, false, request)
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
@@ -37,15 +45,11 @@ export async function POST(request: NextRequest) {
     const isValid = await bcrypt.compare(password, adminUser.hashedPassword)
 
     if (!isValid) {
-      await logLoginAttempt(email, false, request)
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
       )
     }
-
-    // Log successful attempt
-    await logLoginAttempt(email, true, request)
 
     // Update last login
     await prisma.adminProfile.update({
@@ -83,35 +87,10 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("Admin login error:", error)
+    console.error("[AUTH] Admin login error:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     )
-  }
-}
-
-async function logLoginAttempt(
-  email: string,
-  success: boolean,
-  request: NextRequest
-) {
-  try {
-    const userAgent = request.headers.get("user-agent") || ""
-    const forwardedFor = request.headers.get("x-forwarded-for")
-    const realIp = request.headers.get("x-real-ip")
-    const ipAddress = forwardedFor?.split(",")[0]?.trim() || realIp || null
-
-    await prisma.analyticsEvent.create({
-      data: {
-        eventType: "auth",
-        eventName: success ? "admin_login_success" : "admin_login_failed",
-        properties: { email },
-        userAgent,
-        ipAddress,
-      },
-    })
-  } catch {
-    // Silent fail - don't break login for analytics
   }
 }

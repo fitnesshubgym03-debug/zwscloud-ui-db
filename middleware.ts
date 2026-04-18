@@ -2,18 +2,10 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 
+// JWT_SECRET must be set in environment variables - never hardcode
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "zws-cloud-secret-key-change-in-production"
+  process.env.JWT_SECRET || ""
 )
-
-// Routes that require authentication
-const PROTECTED_ROUTES = ['/client-area', '/admin']
-
-// Routes that require admin role
-const ADMIN_ROUTES = ['/admin']
-
-// Routes accessible only when NOT authenticated
-const AUTH_ROUTES = ['/login', '/register', '/zwsloginsam']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -26,6 +18,11 @@ export async function middleware(request: NextRequest) {
     pathname === '/favicon.ico' ||
     /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname)
   ) {
+    return NextResponse.next()
+  }
+
+  // If JWT_SECRET is not configured, skip token verification
+  if (!process.env.JWT_SECRET) {
     return NextResponse.next()
   }
 
@@ -51,6 +48,13 @@ export async function middleware(request: NextRequest) {
 
   const isAuthenticated = !!user
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+
+  // Routes that require authentication
+  const PROTECTED_ROUTES = ['/client-area', '/admin']
+  // Routes that require admin role
+  const ADMIN_ROUTES = ['/admin']
+  // Routes accessible only when NOT authenticated
+  const AUTH_ROUTES = ['/login', '/register', '/zwsloginsam']
 
   // Check if current route is protected
   const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route))
@@ -81,10 +85,4 @@ export async function middleware(request: NextRequest) {
   }
 
   return NextResponse.next()
-}
-
-export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
 }

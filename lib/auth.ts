@@ -5,8 +5,9 @@
 import { cookies } from "next/headers"
 import { SignJWT, jwtVerify, type JWTPayload } from "jose"
 
+// JWT_SECRET must be set in environment variables - never hardcode
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "zws-cloud-secret-key-change-in-production"
+  process.env.JWT_SECRET || ""
 )
 
 const TOKEN_NAME = "auth_token"
@@ -30,6 +31,10 @@ export interface AuthPayload extends JWTPayload {
  * Create a JWT token for a user
  */
 export async function createToken(user: AuthUser): Promise<string> {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET environment variable is not configured")
+  }
+
   return new SignJWT({
     id: user.id,
     email: user.email,
@@ -46,6 +51,11 @@ export async function createToken(user: AuthUser): Promise<string> {
  * Verify and decode a JWT token
  */
 export async function verifyToken(token: string): Promise<AuthPayload | null> {
+  if (!process.env.JWT_SECRET) {
+    console.error("[AUTH] JWT_SECRET not configured - cannot verify token")
+    return null
+  }
+
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET)
     return payload as AuthPayload
