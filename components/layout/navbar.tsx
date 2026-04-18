@@ -2,10 +2,11 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Menu, X, ArrowRight } from "lucide-react"
+import { Menu, X } from "lucide-react"
 import { Logo } from "@/components/brand/logo"
 import { Button } from "@/components/ui/button"
 import { Container } from "@/components/layout/container"
+import { UserMenu } from "@/components/auth/user-menu"
 import { primaryNav } from "@/data/site"
 import { cn } from "@/lib/utils"
 import { usePathname } from "next/navigation"
@@ -44,15 +45,7 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-2 lg:flex">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/login">Log in</Link>
-          </Button>
-          <Button size="sm" asChild className="gap-1.5">
-            <Link href="/register">
-              Get started
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
+          <UserMenu />
         </div>
 
         <button

@@ -54,7 +54,8 @@ export function AdminLoginForm() {
     setState({ status: "submitting" })
 
     try {
-      const response = await fetch("/api/admin/auth/login", {
+      // Use unified auth endpoint
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -70,11 +71,23 @@ export function AdminLoginForm() {
         return
       }
 
+      // Check if user has admin privileges
+      const isAdmin = data.user?.role === "admin" || data.user?.role === "super_admin"
+      
+      if (!isAdmin) {
+        setState({
+          status: "error",
+          message: "Access denied. Admin privileges required.",
+        })
+        return
+      }
+
       setState({ status: "success" })
       
       // Redirect to admin dashboard
       setTimeout(() => {
         router.push("/admin")
+        router.refresh()
       }, 800)
     } catch {
       setState({
