@@ -5,6 +5,9 @@ import { createToken, setAuthCookie, type AuthUser } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[v0] LOGIN: Checking database availability...")
+    console.log("[v0] DATABASE_URL:", process.env.DATABASE_URL ? "SET" : "NOT SET")
+    
     // Verify database is configured
     if (!isDatabaseAvailable()) {
       console.error(
@@ -16,9 +19,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log("[v0] LOGIN: Database available, parsing request body...")
     const body = await request.json()
     const { email, password } = body
 
+    console.log("[v0] LOGIN: Email provided:", email ? "YES" : "NO")
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
@@ -29,9 +34,11 @@ export async function POST(request: NextRequest) {
     // Find user in unified users table
     let user
     try {
+      console.log("[v0] LOGIN: Looking up user in users table...")
       user = await prisma.user.findUnique({
         where: { email: email.toLowerCase() },
       })
+      console.log("[v0] LOGIN: User lookup result:", user ? "FOUND" : "NOT FOUND")
     } catch (dbError) {
       console.error("[AUTH] Database error during user lookup:", dbError)
       return NextResponse.json(
@@ -44,9 +51,11 @@ export async function POST(request: NextRequest) {
     if (!user) {
       let adminProfile
       try {
+        console.log("[v0] LOGIN: Looking up user in admin_profiles table...")
         adminProfile = await prisma.adminProfile.findUnique({
           where: { email: email.toLowerCase() },
         })
+        console.log("[v0] LOGIN: Admin profile lookup result:", adminProfile ? "FOUND" : "NOT FOUND")
       } catch (dbError) {
         console.error("[AUTH] Database error during admin lookup:", dbError)
         return NextResponse.json(
@@ -56,8 +65,10 @@ export async function POST(request: NextRequest) {
       }
 
         if (adminProfile) {
+        console.log("[v0] LOGIN: Admin profile found, verifying password...")
         // Verify password
         const isValid = await bcrypt.compare(password, adminProfile.hashedPassword)
+        console.log("[v0] LOGIN: Password valid:", isValid)
         if (!isValid) {
           return NextResponse.json(
             { error: "Invalid credentials" },
@@ -73,7 +84,9 @@ export async function POST(request: NextRequest) {
           role: adminProfile.role === "super_admin" ? "super_admin" : "admin",
         }
 
+        console.log("[v0] LOGIN: Creating JWT token...")
         const token = await createToken(authUser)
+        console.log("[v0] LOGIN: Token created, setting cookie...")
         await setAuthCookie(token)
 
         // Update last login
@@ -82,6 +95,7 @@ export async function POST(request: NextRequest) {
           data: { lastLogin: new Date() },
         })
 
+        console.log("[v0] LOGIN: Admin login successful!")
         return NextResponse.json({
           success: true,
           user: authUser,
@@ -123,6 +137,7 @@ export async function POST(request: NextRequest) {
       data: { lastLogin: new Date() },
     })
 
+    console.log("[v0] LOGIN: User login successful!")
     return NextResponse.json({
       success: true,
       user: authUser,
