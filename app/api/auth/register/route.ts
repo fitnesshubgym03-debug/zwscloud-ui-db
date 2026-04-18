@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { prisma } from "@/lib/db"
+import { prisma, isDatabaseAvailable } from "@/lib/db"
 import { createToken, setAuthCookie, type AuthUser } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify database is configured
+    if (!isDatabaseAvailable()) {
+      console.error(
+        "[AUTH] DATABASE_URL not configured. Configure DATABASE_URL in environment variables."
+      )
+      return NextResponse.json(
+        { error: "Database configuration error. Please contact administrator." },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { email, password, name } = body
 
@@ -88,9 +99,11 @@ export async function POST(request: NextRequest) {
       redirectTo: "/client-area",
     })
   } catch (error) {
-    console.error("Registration error:", error)
+    console.error("[AUTH] Registration error:", error)
+    const errorMessage =
+      error instanceof Error ? error.message : "Internal server error"
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: errorMessage },
       { status: 500 }
     )
   }

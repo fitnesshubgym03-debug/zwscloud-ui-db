@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { prisma } from "@/lib/db"
+import { prisma, isDatabaseAvailable } from "@/lib/db"
 import { createToken, setAuthCookie, type AuthUser } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
     // Verify database is configured
-    if (!process.env.DATABASE_URL) {
+    if (!isDatabaseAvailable()) {
       console.error(
         "[AUTH] DATABASE_URL not configured. Configure DATABASE_URL in environment variables."
       )
