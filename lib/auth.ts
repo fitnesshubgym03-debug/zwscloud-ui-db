@@ -71,7 +71,8 @@ export async function setAuthCookie(token: string): Promise<void> {
   const cookieStore = await cookies()
   cookieStore.set(TOKEN_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Don't set secure flag in development/localhost to allow cookies over HTTP
+    secure: process.env.NODE_ENV === "production" && !process.env.VERCEL_DEV,
     sameSite: "lax",
     maxAge: TOKEN_MAX_AGE,
     path: "/",
