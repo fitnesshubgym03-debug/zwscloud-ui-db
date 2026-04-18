@@ -23,7 +23,7 @@ export function PlansPreview() {
             </Link>
           </Button>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {plans.map((plan) => (
             <PlanCard key={plan.id} plan={plan} />
           ))}
