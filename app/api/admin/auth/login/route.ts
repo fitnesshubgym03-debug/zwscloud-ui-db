@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { SignJWT } from "jose"
 import bcrypt from "bcryptjs"
-import { prisma } from "@/lib/db"
+import { getAdminByEmail, updateAdminLastLogin, logAnalyticsEvent } from "@/lib/neon"
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "zws-cloud-admin-secret-key-change-in-production"
@@ -20,10 +20,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get admin from database using Prisma
-    const adminUser = await prisma.adminProfile.findUnique({
-      where: { email: email.toLowerCase() },
-    })
+    // Get admin from database
+    const adminUser = await getAdminByEmail(email)
 
     if (!adminUser) {
       await logLoginAttempt(email, false, request)
@@ -34,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify password with bcrypt
-    const isValid = await bcrypt.compare(password, adminUser.hashedPassword)
+    const isValid = await bcrypt.compare(password, adminUser.hashed_password)
 
     if (!isValid) {
       await logLoginAttempt(email, false, request)
@@ -48,15 +46,12 @@ export async function POST(request: NextRequest) {
     await logLoginAttempt(email, true, request)
 
     // Update last login
-    await prisma.adminProfile.update({
-      where: { id: adminUser.id },
-      data: { lastLogin: new Date() },
-    })
+    await updateAdminLastLogin(adminUser.id)
 
     // Create JWT token
     const token = await new SignJWT({
       email: adminUser.email,
-      displayName: adminUser.displayName,
+      displayName: adminUser.display_name,
       role: "super_admin",
     })
       .setProtectedHeader({ alg: "HS256" })
@@ -78,7 +73,7 @@ export async function POST(request: NextRequest) {
       success: true,
       user: {
         email: adminUser.email,
-        displayName: adminUser.displayName,
+        displayName: adminUser.display_name,
         role: "super_admin",
       },
     })
@@ -102,15 +97,13 @@ async function logLoginAttempt(
     const realIp = request.headers.get("x-real-ip")
     const ipAddress = forwardedFor?.split(",")[0]?.trim() || realIp || null
 
-    await prisma.analyticsEvent.create({
-      data: {
-        eventType: "auth",
-        eventName: success ? "admin_login_success" : "admin_login_failed",
-        properties: { email },
-        userAgent,
-        ipAddress,
-      },
-    })
+    await logAnalyticsEvent(
+      "auth",
+      success ? "admin_login_success" : "admin_login_failed",
+      { email },
+      userAgent,
+      ipAddress
+    )
   } catch {
     // Silent fail - don't break login for analytics
   }

@@ -1,41 +1,37 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { sql } from '@/lib/neon'
 
 export async function GET() {
   try {
     // Fetch all stats in parallel
-    const [customersCount, ordersCount, completedPayments, recentOrders, recentPayments, analyticsEvents] =
-      await Promise.all([
-        prisma.customer.count(),
-        prisma.order.count(),
-        prisma.payment.count({ where: { status: 'completed' } }),
-        prisma.order.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        }),
-        prisma.payment.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        }),
-        prisma.analyticsEvent.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        }),
-      ])
+    const [
+      customersResult,
+      ordersResult,
+      completedPaymentsResult,
+      recentOrders,
+      recentPayments,
+      analyticsEvents,
+      completedPaymentRecords
+    ] = await Promise.all([
+      sql`SELECT COUNT(*) as count FROM customers`,
+      sql`SELECT COUNT(*) as count FROM orders`,
+      sql`SELECT COUNT(*) as count FROM payments WHERE status = 'completed'`,
+      sql`SELECT * FROM orders ORDER BY created_at DESC LIMIT 5`,
+      sql`SELECT * FROM payments ORDER BY created_at DESC LIMIT 5`,
+      sql`SELECT * FROM analytics_events ORDER BY created_at DESC LIMIT 10`,
+      sql`SELECT amount FROM payments WHERE status = 'completed'`,
+    ])
 
-    // Calculate revenue from completed payments
-    const completedPaymentRecords = await prisma.payment.findMany({
-      where: { status: 'completed' },
-      select: { amount: true },
-    })
-
-    const totalRevenue = completedPaymentRecords.reduce((sum, p) => sum + Number(p.amount), 0)
+    const totalRevenue = completedPaymentRecords.reduce(
+      (sum: number, p: { amount: string }) => sum + Number(p.amount),
+      0
+    )
 
     return NextResponse.json({
       stats: {
-        customers: customersCount,
-        orders: ordersCount,
-        payments: completedPayments,
+        customers: Number(customersResult[0]?.count || 0),
+        orders: Number(ordersResult[0]?.count || 0),
+        payments: Number(completedPaymentsResult[0]?.count || 0),
         revenue: totalRevenue,
       },
       recentOrders,

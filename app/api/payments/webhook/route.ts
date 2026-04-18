@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/db"
+import { sql } from "@/lib/neon"
 import { verifyWebhookSignature } from "@/lib/cashfree"
 
 interface WebhookPayload {
@@ -57,67 +57,53 @@ export async function POST(request: NextRequest) {
       const isSuccess = payload.type === "PAYMENT_SUCCESS_WEBHOOK"
 
       // Find the order by order_number
-      const orderData = await prisma.order.findUnique({
-        where: { orderNumber: order.order_id },
-      })
+      const orders = await sql`SELECT * FROM orders WHERE order_number = ${order.order_id}`
 
-      if (!orderData) {
+      if (orders.length === 0) {
         console.error("Order not found:", order.order_id)
         return NextResponse.json({ success: true })
       }
 
-      // Update payment record
+      const orderData = orders[0] as { id: string; customer_id: string; subtotal: string; tax_amount: string; total_amount: string; term_months: number }
       const paymentStatus = isSuccess ? "completed" : "failed"
 
-      await prisma.payment.updateMany({
-        where: { orderId: orderData.id },
-        data: {
-          gatewayPaymentId: payment.cf_payment_id,
-          status: paymentStatus,
-          paymentMethod: getPaymentMethodType(payment.payment_method),
-          paymentMethodDetails: payment.payment_method as any,
-          gatewayResponse: payload.data as any,
-          errorMessage: isSuccess ? null : payment.payment_message,
-          completedAt: isSuccess ? new Date() : null,
-        },
-      })
+      // Update payment record
+      await sql`
+        UPDATE payments SET 
+          gateway_payment_id = ${payment.cf_payment_id},
+          status = ${paymentStatus},
+          payment_method = ${getPaymentMethodType(payment.payment_method)},
+          payment_method_details = ${JSON.stringify(payment.payment_method)},
+          gateway_response = ${JSON.stringify(payload.data)},
+          error_message = ${isSuccess ? null : payment.payment_message},
+          completed_at = ${isSuccess ? new Date().toISOString() : null},
+          updated_at = NOW()
+        WHERE order_id = ${orderData.id}
+      `
 
       // Update order status
-      await prisma.order.update({
-        where: { id: orderData.id },
-        data: {
-          status: isSuccess ? "paid" : "payment_failed",
-        },
-      })
+      await sql`
+        UPDATE orders SET 
+          status = ${isSuccess ? "paid" : "payment_failed"},
+          updated_at = NOW()
+        WHERE id = ${orderData.id}
+      `
 
       // If payment successful, create invoice
       if (isSuccess) {
-        const orderDetails = await prisma.order.findUnique({
-          where: { id: orderData.id },
-          include: {
-            product: true,
-            customConfig: true,
-          },
-        })
-
-        if (orderDetails) {
-          await createInvoice(orderDetails)
-        }
+        await createInvoice(orderData)
       }
 
       // Log analytics event
-      await prisma.analyticsEvent.create({
-        data: {
-          eventType: "payment",
-          eventName: isSuccess ? "payment_success" : "payment_failed",
-          properties: {
-            orderId: order.order_id,
-            amount: payment.payment_amount,
-            paymentMethod: getPaymentMethodType(payment.payment_method),
-            cfPaymentId: payment.cf_payment_id,
-          },
-        },
-      })
+      await sql`
+        INSERT INTO analytics_events (event_type, event_name, properties)
+        VALUES ('payment', ${isSuccess ? 'payment_success' : 'payment_failed'}, ${JSON.stringify({
+          orderId: order.order_id,
+          amount: payment.payment_amount,
+          paymentMethod: getPaymentMethodType(payment.payment_method),
+          cfPaymentId: payment.cf_payment_id,
+        })})
+      `
     }
 
     return NextResponse.json({ success: true })
@@ -134,18 +120,37 @@ function getPaymentMethodType(paymentMethod: WebhookPayload["data"]["payment"]["
   return "unknown"
 }
 
-async function createInvoice(order: any) {
-  const invoiceNumber = `INV-${order.orderNumber.replace("ZWS-", "")}`
+async function createInvoice(order: { id: string; customer_id: string; subtotal: string; tax_amount: string; total_amount: string; term_months: number }) {
+  // Get order details
+  const products = await sql`
+    SELECT p.name FROM orders o 
+    LEFT JOIN products p ON o.product_id = p.id 
+    WHERE o.id = ${order.id}
+  `
+  const configs = await sql`
+    SELECT cc.cpu_cores, cc.ram_gb, cc.disks FROM orders o 
+    LEFT JOIN custom_configs cc ON o.custom_config_id = cc.id 
+    WHERE o.id = ${order.id}
+  `
+
+  const productName = (products[0] as { name: string } | undefined)?.name
+  const configData = configs[0] as { cpu_cores: number; ram_gb: number; disks: unknown[] } | undefined
+
+  // Generate invoice number
+  const orderResult = await sql`SELECT order_number FROM orders WHERE id = ${order.id}`
+  const orderNumber = (orderResult[0] as { order_number: string }).order_number
+  const invoiceNumber = `INV-${orderNumber.replace("ZWS-", "")}`
+
+  const description = productName || 
+    (configData ? `Custom VPS (${configData.cpu_cores} vCPU, ${configData.ram_gb}GB RAM)` : "Custom VPS Configuration")
 
   const lineItems = [
     {
-      description:
-        order.product?.name ||
-        `Custom VPS (${order.customConfig?.cpuCores} vCPU, ${order.customConfig?.ramGb}GB RAM, ${order.customConfig?.storageGb}GB Storage)`,
+      description,
       quantity: 1,
-      unitPrice: order.subtotal / order.termMonths,
-      termMonths: order.termMonths,
-      total: order.subtotal,
+      unitPrice: parseFloat(order.subtotal) / order.term_months,
+      termMonths: order.term_months,
+      total: parseFloat(order.subtotal),
     },
   ]
 
@@ -153,21 +158,8 @@ async function createInvoice(order: any) {
   const dueDate = new Date()
   dueDate.setDate(dueDate.getDate() + 7)
 
-  await prisma.invoice.create({
-    data: {
-      invoiceNumber,
-      orderId: order.id,
-      customerId: order.customerId,
-      issueDate,
-      dueDate,
-      subtotal: order.subtotal,
-      taxRate: 18,
-      taxAmount: order.taxAmount,
-      totalAmount: order.totalAmount,
-      currency: "INR",
-      status: "paid",
-      lineItems: lineItems as any,
-      paidAt: new Date(),
-    },
-  })
+  await sql`
+    INSERT INTO invoices (invoice_number, order_id, customer_id, issue_date, due_date, subtotal, tax_rate, tax_amount, total_amount, currency, status, line_items, paid_at)
+    VALUES (${invoiceNumber}, ${order.id}, ${order.customer_id}, ${issueDate.toISOString().split('T')[0]}, ${dueDate.toISOString().split('T')[0]}, ${order.subtotal}, 18, ${order.tax_amount}, ${order.total_amount}, 'INR', 'paid', ${JSON.stringify(lineItems)}, ${new Date().toISOString()})
+  `
 }

@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma, isDatabaseAvailable } from "@/lib/db"
+import { sql } from "@/lib/neon"
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if database is configured
-    if (!isDatabaseAvailable()) {
-      // Silent success when database is not configured
-      return NextResponse.json({ success: true, message: "Analytics disabled - no database" })
-    }
-
     const body = await request.json()
     const { event_type, event_name, properties = {} } = body
 
@@ -29,22 +23,21 @@ export async function POST(request: NextRequest) {
     // Generate or get session ID from cookie
     const sessionId = request.cookies.get("zws_session_id")?.value || crypto.randomUUID()
 
-    // Insert analytics event using Prisma
-    await prisma.analyticsEvent.create({
-      data: {
-        eventType: event_type,
-        eventName: event_name,
-        pagePath: properties.page_path || new URL(referer || "http://localhost").pathname,
-        referrer: referer,
-        sessionId,
-        userAgent,
-        ipAddress,
-        properties: {
-          ...properties,
-          timestamp: new Date().toISOString(),
-        },
-      },
-    })
+    // Get page path
+    let pagePath = properties.page_path || null
+    if (!pagePath && referer) {
+      try {
+        pagePath = new URL(referer).pathname
+      } catch {
+        pagePath = null
+      }
+    }
+
+    // Insert analytics event
+    await sql`
+      INSERT INTO analytics_events (event_type, event_name, page_path, referrer, session_id, user_agent, ip_address, properties)
+      VALUES (${event_type}, ${event_name}, ${pagePath}, ${referer}, ${sessionId}, ${userAgent}, ${ipAddress}, ${JSON.stringify({ ...properties, timestamp: new Date().toISOString() })})
+    `
 
     const response = NextResponse.json({ success: true })
     

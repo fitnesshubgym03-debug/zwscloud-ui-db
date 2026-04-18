@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/db"
+import { sql } from "@/lib/neon"
 import { createPaymentOrder } from "@/lib/cashfree"
 import { calculateTax } from "@/lib/pricing"
 
@@ -22,39 +22,51 @@ export async function POST(request: NextRequest) {
     }
 
     let unitPrice: number
-    let productData = null
-    let customConfigData = null
+    let productData: { name: string } | null = null
+    let customConfigData: { cpu_cores: number; ram_gb: number; storage_gb?: number } | null = null
 
     // Get pricing from product or custom config
     if (productId) {
-      const product = await prisma.product.findUnique({
-        where: { id: productId },
-      })
+      const products = await sql`SELECT * FROM products WHERE id = ${productId}`
 
-      if (!product) {
+      if (products.length === 0) {
         return NextResponse.json(
           { error: "Product not found" },
           { status: 404 }
         )
       }
 
-      // Get price for term
-      const termPriceField = (`price${term}m` as any) as keyof typeof product
-      unitPrice = product[termPriceField] || product.price1m
-      productData = product
-    } else if (customConfigId) {
-      const config = await prisma.customConfig.findUnique({
-        where: { id: customConfigId },
-      })
+      const product = products[0] as {
+        name: string
+        price_1m: string
+        price_3m: string | null
+        price_6m: string | null
+        price_12m: string | null
+        price_24m: string | null
+      }
 
-      if (!config) {
+      // Get price for term
+      const termPrices: Record<number, string | null> = {
+        1: product.price_1m,
+        3: product.price_3m,
+        6: product.price_6m,
+        12: product.price_12m,
+        24: product.price_24m,
+      }
+      unitPrice = parseFloat(termPrices[term] || product.price_1m)
+      productData = { name: product.name }
+    } else if (customConfigId) {
+      const configs = await sql`SELECT * FROM custom_configs WHERE id = ${customConfigId}`
+
+      if (configs.length === 0) {
         return NextResponse.json(
           { error: "Custom configuration not found" },
           { status: 404 }
         )
       }
 
-      unitPrice = config.monthlyPrice
+      const config = configs[0] as { monthly_price: string; cpu_cores: number; ram_gb: number }
+      unitPrice = parseFloat(config.monthly_price)
       customConfigData = config
     } else {
       return NextResponse.json(
@@ -69,42 +81,31 @@ export async function POST(request: NextRequest) {
     const totalAmount = subtotal + taxAmount
 
     // Create or get customer
-    let customer = await prisma.customer.findUnique({
-      where: { email: customerDetails.email },
-    })
+    let customers = await sql`SELECT * FROM customers WHERE email = ${customerDetails.email}`
+    let customerId: string
 
-    if (!customer) {
-      customer = await prisma.customer.create({
-        data: {
-          email: customerDetails.email,
-          name: customerDetails.name || null,
-          phone: customerDetails.phone,
-        },
-      })
+    if (customers.length === 0) {
+      const newCustomer = await sql`
+        INSERT INTO customers (email, name, phone) 
+        VALUES (${customerDetails.email}, ${customerDetails.name || null}, ${customerDetails.phone})
+        RETURNING id
+      `
+      customerId = (newCustomer[0] as { id: string }).id
+    } else {
+      customerId = (customers[0] as { id: string }).id
     }
 
     // Create order record
     const orderNumber = generateOrderNumber()
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        customerId: customer.id,
-        productId: productId || undefined,
-        customConfigId: customConfigId || undefined,
-        termMonths: term,
-        unitPrice,
-        quantity: 1,
-        subtotal,
-        taxAmount,
-        totalAmount,
-        currency: "INR",
-        status: "pending",
-        metadata: {
-          productName: productData?.name || "Custom VPS Configuration",
-          customerDetails,
-        },
-      },
-    })
+    const orderResult = await sql`
+      INSERT INTO orders (order_number, customer_id, product_id, custom_config_id, term_months, unit_price, quantity, subtotal, tax_amount, total_amount, currency, status, metadata)
+      VALUES (${orderNumber}, ${customerId}, ${productId || null}, ${customConfigId || null}, ${term}, ${unitPrice}, 1, ${subtotal}, ${taxAmount}, ${totalAmount}, 'INR', 'pending', ${JSON.stringify({
+        productName: productData?.name || "Custom VPS Configuration",
+        customerDetails,
+      })})
+      RETURNING id
+    `
+    const orderId = (orderResult[0] as { id: string }).id
 
     // Create Cashfree payment order
     try {
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
         orderId: orderNumber,
         orderAmount: totalAmount,
         customerDetails: {
-          customerId: customer.id,
+          customerId,
           customerEmail: customerDetails.email,
           customerPhone: customerDetails.phone,
           customerName: customerDetails.name,
@@ -121,33 +122,22 @@ export async function POST(request: NextRequest) {
       })
 
       // Create payment record
-      await prisma.payment.create({
-        data: {
-          orderId: order.id,
-          customerId: customer.id,
-          gateway: "cashfree",
-          gatewayOrderId: paymentOrder.cfOrderId,
-          gatewaySessionId: paymentOrder.paymentSessionId,
-          amount: totalAmount,
-          currency: "INR",
-          status: "pending",
-        },
-      })
+      await sql`
+        INSERT INTO payments (order_id, customer_id, gateway, gateway_order_id, gateway_session_id, amount, currency, status)
+        VALUES (${orderId}, ${customerId}, 'cashfree', ${paymentOrder.cfOrderId}, ${paymentOrder.paymentSessionId}, ${totalAmount}, 'INR', 'pending')
+      `
 
       return NextResponse.json({
         success: true,
         orderNumber,
-        orderId: order.id,
+        orderId,
         paymentSessionId: paymentOrder.paymentSessionId,
         paymentUrl: paymentOrder.payments.url,
         amount: totalAmount,
       })
     } catch (paymentError) {
       // Update order status to failed
-      await prisma.order.update({
-        where: { id: order.id },
-        data: { status: "payment_failed" },
-      })
+      await sql`UPDATE orders SET status = 'payment_failed' WHERE id = ${orderId}`
 
       console.error("Cashfree payment error:", paymentError)
       return NextResponse.json(

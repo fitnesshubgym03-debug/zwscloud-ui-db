@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
-import { prisma } from "@/lib/db"
+import { sql } from "@/lib/neon"
 
 /**
  * This endpoint initializes the admin user from environment variables
@@ -21,11 +21,11 @@ export async function POST() {
     }
 
     // Check if admin user already exists
-    const existingAdmin = await prisma.adminProfile.findUnique({
-      where: { email: adminEmail.toLowerCase() },
-    })
+    const existingAdmin = await sql`
+      SELECT id FROM admin_profiles WHERE email = ${adminEmail.toLowerCase()}
+    `
 
-    if (existingAdmin) {
+    if (existingAdmin.length > 0) {
       return NextResponse.json({
         success: true,
         message: "Admin user already exists",
@@ -36,15 +36,11 @@ export async function POST() {
     // Hash the password
     const hashedPassword = await bcrypt.hash(adminPassword, 10)
 
-    // Create admin profile using Prisma
-    const adminUser = await prisma.adminProfile.create({
-      data: {
-        email: adminEmail.toLowerCase(),
-        username: adminEmail.split("@")[0],
-        displayName: adminDisplayName,
-        hashedPassword,
-      },
-    })
+    // Create admin profile
+    await sql`
+      INSERT INTO admin_profiles (email, username, display_name, hashed_password, role)
+      VALUES (${adminEmail.toLowerCase()}, ${adminEmail.split("@")[0]}, ${adminDisplayName}, ${hashedPassword}, 'admin')
+    `
 
     return NextResponse.json({
       success: true,
