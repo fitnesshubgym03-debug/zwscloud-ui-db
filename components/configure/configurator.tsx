@@ -425,7 +425,7 @@ export function Configurator() {
               <span>{formatPrice(pricing.breakdown.ram)}</span>
             </div>
             <div className="mt-1.5 flex items-center justify-between text-muted-foreground">
-              <span>Storage ({storage[0]} GB)</span>
+              <span>Storage ({getTotalStorageGb(disks)} GB)</span>
               <span>{formatPrice(pricing.breakdown.storage)}</span>
             </div>
             <div className="mt-1.5 flex items-center justify-between text-muted-foreground">
