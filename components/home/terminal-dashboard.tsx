@@ -65,10 +65,10 @@ function randBetween(min: number, max: number, decimals = 1) {
 }
 
 const INITIAL_METRICS: Metrics = {
-  ping: 2,
-  latency: 18,
-  download: 12.4,
-  upload: 9.8,
+  ping: 1,
+  latency: 2,
+  download: 1800.4,
+  upload: 1800.8,
 }
 
 function useSimulatedMetrics(interval = 1400) {
@@ -77,13 +77,13 @@ function useSimulatedMetrics(interval = 1400) {
   useEffect(() => {
     const id = setInterval(() => {
       setMetrics((prev) => ({
-        // Ping drifts gently within 1–5 ms.
-        ping: clamp(prev.ping + randBetween(-0.6, 0.6, 1), 1, 5),
-        // Latency smooths around a target between 12–45 ms.
-        latency: clamp(prev.latency + randBetween(-3, 3, 0), 12, 45),
-        // Up/down speeds drift between 1–25 Gbps.
-        download: clamp(prev.download + randBetween(-1.8, 1.8, 1), 1, 25),
-        upload: clamp(prev.upload + randBetween(-1.4, 1.4, 1), 1, 25),
+        // Ping drifts gently within 0.5–2 ms.
+        ping: clamp(prev.ping + randBetween(-0.3, 0.3, 1), 0.5, 2),
+        // Latency smooths around a target between 1–3 ms.
+        latency: clamp(prev.latency + randBetween(-0.5, 0.5, 0), 1, 3),
+        // Up/down speeds drift between 1700–1900 Gbps (1.80 Tbps range).
+        download: clamp(prev.download + randBetween(-25, 25, 1), 1700, 1900),
+        upload: clamp(prev.upload + randBetween(-25, 25, 1), 1700, 1900),
       }))
     }, interval)
     return () => clearInterval(id)
@@ -194,16 +194,16 @@ export function TerminalDashboard() {
           <MetricTile
             icon={<ArrowDownToLine className="h-3.5 w-3.5" />}
             label="Download"
-            value={metrics.download.toFixed(1)}
-            unit="Gbps"
-            bar={metrics.download / 25}
+            value={(metrics.download / 1000).toFixed(2)}
+            unit="Tbps"
+            bar={metrics.download / 1900}
           />
           <MetricTile
             icon={<ArrowUpToLine className="h-3.5 w-3.5" />}
             label="Upload"
-            value={metrics.upload.toFixed(1)}
-            unit="Gbps"
-            bar={metrics.upload / 25}
+            value={(metrics.upload / 1000).toFixed(2)}
+            unit="Tbps"
+            bar={metrics.upload / 1900}
           />
         </div>
 
