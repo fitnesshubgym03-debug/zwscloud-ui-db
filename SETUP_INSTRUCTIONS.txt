@@ -1,0 +1,231 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                   ZWS CLOUD - SETUP INSTRUCTIONS                             ║
+║                  Fully Automated Installation from GitHub                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📋 TABLE OF CONTENTS
+─────────────────────────────────────────────────────────────────────────────────
+1. Quick Start
+2. What You Need
+3. Installation Steps
+4. Configuration
+5. Accessing Your Application
+6. Troubleshooting
+7. Next Steps
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+1️⃣  QUICK START
+─────────────────────────────────────────────────────────────────────────────────
+
+Copy and paste this ONE command into your terminal:
+
+    bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install-auto.sh)
+
+That's it! The installer will handle everything else automatically.
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+2️⃣  WHAT YOU NEED
+─────────────────────────────────────────────────────────────────────────────────
+
+✓ A server or computer running:
+  • Ubuntu 20.04+ LTS
+  • Debian 10+
+  • CentOS 7+
+  • Fedora 30+
+  • RHEL 7+
+  • macOS 10.15+
+
+✓ Internet connection (for downloading dependencies)
+
+✓ Optional:
+  • Domain name (for production deployment)
+  • Payment gateway API keys (Razorpay or Cashfree)
+  • Database credentials (if using external database)
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+3️⃣  INSTALLATION STEPS
+─────────────────────────────────────────────────────────────────────────────────
+
+STEP 1: SSH into your server
+─────────────────────────────────────────────────────────────────────────────────
+ssh root@your-server-ip
+
+STEP 2: Run the installer
+─────────────────────────────────────────────────────────────────────────────────
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install-auto.sh)
+
+STEP 3: Wait for installation
+─────────────────────────────────────────────────────────────────────────────────
+The installer will:
+  • Check your OS and install dependencies
+  • Clone the repository
+  • Ask for configuration
+  • Set up the database
+  • Create your admin user
+  • Build the application
+
+Total time: 10-30 minutes (depending on internet speed)
+
+STEP 4: Start the application
+─────────────────────────────────────────────────────────────────────────────────
+cd zwscloud-ui-db
+./start.sh
+
+Or manually:
+pnpm start
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+4️⃣  CONFIGURATION
+─────────────────────────────────────────────────────────────────────────────────
+
+The installer will prompt you for:
+
+ADMIN USER:
+  Email: your-email@example.com
+  Password: Strong_Password@123
+  Name: Your Name
+
+PAYMENT GATEWAY:
+  Choice: 1 for Razorpay (recommended) or 2 for Cashfree
+  API Keys: (optional, can add later)
+
+DOMAIN:
+  Domain: your-domain.com (optional)
+  SSL: Auto-generated or custom certificate
+
+DATABASE:
+  Type: PostgreSQL (recommended) or MySQL
+  Host: localhost
+  Port: 5432 (PostgreSQL) or 3306 (MySQL)
+  User: postgres or root
+  Password: your-db-password
+  Database: zwscloud
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+5️⃣  ACCESSING YOUR APPLICATION
+─────────────────────────────────────────────────────────────────────────────────
+
+After installation completes, you can access:
+
+LOCAL DEVELOPMENT:
+  Frontend: http://localhost:3000
+  Admin: http://localhost:3000/admin
+  API: http://localhost:3000/api
+
+WITH DOMAIN:
+  Frontend: https://your-domain.com
+  Admin: https://your-domain.com/admin
+
+ADMIN LOGIN:
+  Email: (as you entered during setup)
+  Password: (as you entered during setup)
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+6️⃣  TROUBLESHOOTING
+─────────────────────────────────────────────────────────────────────────────────
+
+ERROR: "curl: command not found"
+→ The installer will install curl automatically. If it fails:
+  Ubuntu/Debian: sudo apt-get install curl
+  CentOS/Fedora: sudo yum install curl
+
+ERROR: "bash: line 1: sudo: command not found"
+→ Run commands without sudo if you're already root
+
+ERROR: "Permission denied"
+→ Make sure you have write permissions in the directory
+  chmod 755 /path/to/directory
+
+ERROR: "Port 3000 already in use"
+→ Use a different port:
+  PORT=3001 pnpm start
+
+ERROR: "Database connection failed"
+→ Check database is running and credentials are correct
+  PostgreSQL: psql -h localhost -U postgres
+  MySQL: mysql -h localhost -u root -p
+
+MORE HELP: See AUTOMATED_INSTALL.md for detailed troubleshooting
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+7️⃣  NEXT STEPS
+─────────────────────────────────────────────────────────────────────────────────
+
+1. Change Admin Password
+   └─ Log in to admin dashboard and update password immediately
+
+2. Configure Payment Webhooks (if using Razorpay)
+   └─ Go to Razorpay Dashboard → Settings → Webhooks
+   └─ Add: https://your-domain/api/payments/razorpay-webhook
+
+3. Review Environment Configuration
+   └─ Edit: .env.production.local
+   └─ Update: payment gateway keys, domain, etc.
+
+4. Set Up Domain (if not done during setup)
+   └─ Update DNS records
+   └─ Configure SSL certificate
+   └─ Set up reverse proxy (nginx/Apache)
+
+5. Create Database Backups
+   └─ PostgreSQL: pg_dump -U postgres zwscloud > backup.sql
+   └─ MySQL: mysqldump -u root -p zwscloud > backup.sql
+
+6. Enable HTTPS (if not auto-configured)
+   └─ Use Let's Encrypt: certbot
+   └─ Update nginx/Apache configuration
+
+7. Monitor Application
+   └─ Watch logs: tail -f ~/.pm2/logs/app-error.log
+   └─ Check health: curl http://localhost:3000/health
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+📖 DOCUMENTATION LINKS
+─────────────────────────────────────────────────────────────────────────────────
+
+Main Repository:
+  https://github.com/fitnesshubgym03-debug/zwscloud-ui-db
+
+Automatic Installation Guide:
+  AUTOMATED_INSTALL.md
+
+Complete Setup Guide:
+  INSTALL.md
+
+Documentation Index:
+  DOCUMENTATION_INDEX.md
+
+Deployment Guide:
+  DEPLOYMENT_READY.md
+
+Integration Setup:
+  INTEGRATION_SETUP.md
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+✅ YOU'RE ALL SET!
+─────────────────────────────────────────────────────────────────────────────────
+
+Your ZWS Cloud application is ready to use. The fully automated installer takes
+care of everything - from system dependencies to application configuration.
+
+Just run:
+    bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install-auto.sh)
+
+And follow the prompts!
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+Questions? See the documentation or open an issue on GitHub:
+  https://github.com/fitnesshubgym03-debug/zwscloud-ui-db/issues
+
+Last Updated: 2026-07-29
+Version: 1.0.0 - Fully Automated Installer
