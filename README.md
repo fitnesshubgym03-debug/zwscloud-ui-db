@@ -2,27 +2,36 @@
 
 ## ⚡ Quick Installation (One Command)
 
-Get ZWS Cloud up and running with a single command:
+Get ZWS Cloud up and running with a single command - **no prerequisites needed!**
 
-### Interactive Setup (Recommended)
+### Fully Automated Setup (Recommended) ⭐
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install-auto.sh)
+```
+
+**This automatically installs everything:**
+- ✅ Node.js 20 LTS, npm, pnpm
+- ✅ Git, curl, openssl
+- ✅ Clones repository
+- ✅ Prompts for configuration
+- ✅ Sets up database
+- ✅ Creates admin user
+- ✅ Builds application
+- ✅ Works on Ubuntu, Debian, CentOS, Fedora, macOS
+
+**See [AUTOMATED_INSTALL.md](./AUTOMATED_INSTALL.md) for detailed guide**
+
+### Interactive Setup
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh)
 ```
+*Requires Node.js and npm already installed*
 
 ### Quick Setup with Defaults
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/quick-setup.sh)
 ```
-
-The installer will:
-- ✅ Install all dependencies (Node.js, database, etc.)
-- ✅ Clone the repository
-- ✅ Prompt for admin credentials
-- ✅ Configure payment gateway (Razorpay/Cashfree)
-- ✅ Set up domain and SSL certificate
-- ✅ Configure database (PostgreSQL/MySQL)
-- ✅ Create admin user
-- ✅ Build and verify the application
+*Fast setup for development*
 
 **For detailed setup options, see [INSTALL.md](./INSTALL.md)**
 
