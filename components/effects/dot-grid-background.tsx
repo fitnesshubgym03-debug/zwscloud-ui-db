@@ -24,8 +24,7 @@ export function DotGridBackground() {
     if (!ctx) return
 
     const prefersReducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
 
     // Pointer state. tx/ty = target (from events), x/y = eased.
     // active ramps 0 -> 1 on move, and decays back to 0 on leave.
