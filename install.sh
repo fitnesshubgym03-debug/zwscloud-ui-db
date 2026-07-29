@@ -198,6 +198,7 @@ get_configuration() {
     DB_USER="zwscloud_user"
     DB_PASSWORD=$(openssl rand -base64 32 | tr -d '=' | tr '+/' '-_')
     DATABASE_TYPE="postgres"
+    DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
     
     JWT_SECRET=$(openssl rand -base64 32)
     
@@ -356,6 +357,21 @@ setup_database() {
   print_header "Setting Up Database"
   
   print_info "Running database migrations..."
+  
+  # Source environment variables
+  if [ -f .env.local ]; then
+    set -a
+    source .env.local
+    set +a
+    print_info "Environment variables loaded"
+  fi
+  
+  # Verify DATABASE_URL is set
+  if [ -z "$DATABASE_URL" ]; then
+    print_error "DATABASE_URL is not set"
+    exit 1
+  fi
+  
   if command -v pnpm &> /dev/null; then
     pnpm db:push --skip-generate
   else
@@ -420,6 +436,13 @@ async function createAdmin() {
 createAdmin();
 EOFADMIN
 
+  # Load environment variables for admin creation
+  if [ -f .env.local ]; then
+    set -a
+    source .env.local
+    set +a
+  fi
+  
   if command -v pnpm &> /dev/null; then
     pnpm exec node /tmp/create-admin.js
   else
@@ -432,6 +455,13 @@ EOFADMIN
 # Build application
 build_app() {
   print_header "Building Application"
+  
+  # Load environment variables for build
+  if [ -f .env.local ]; then
+    set -a
+    source .env.local
+    set +a
+  fi
   
   print_info "Building Next.js application..."
   if command -v pnpm &> /dev/null; then
