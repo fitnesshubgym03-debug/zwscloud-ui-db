@@ -1,0 +1,522 @@
+#!/bin/bash
+
+###############################################################################
+# ZWS Cloud - One-Line Installer Script
+# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh)
+# Or:    curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh | bash
+###############################################################################
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Functions
+print_header() {
+  echo -e "${BLUE}===============================================${NC}"
+  echo -e "${BLUE}$1${NC}"
+  echo -e "${BLUE}===============================================${NC}"
+}
+
+print_success() {
+  echo -e "${GREEN}✓ $1${NC}"
+}
+
+print_error() {
+  echo -e "${RED}✗ $1${NC}"
+}
+
+print_info() {
+  echo -e "${YELLOW}ℹ $1${NC}"
+}
+
+prompt_input() {
+  local prompt="$1"
+  local default="$2"
+  local input
+  
+  if [ -z "$default" ]; then
+    read -p "$(echo -e ${YELLOW}${prompt}${NC}): " input
+  else
+    read -p "$(echo -e ${YELLOW}${prompt} [${default}]${NC}): " input
+    input=${input:-$default}
+  fi
+  
+  echo "$input"
+}
+
+prompt_password() {
+  local prompt="$1"
+  local input
+  
+  read -sp "$(echo -e ${YELLOW}${prompt}${NC}): " input
+  echo ""
+  echo "$input"
+}
+
+prompt_yn() {
+  local prompt="$1"
+  local response
+  
+  while true; do
+    read -p "$(echo -e ${YELLOW}${prompt} [y/n]${NC}): " response
+    case "$response" in
+      [yY][eE][sS]|[yY])
+        return 0
+        ;;
+      [nN][oO]|[nN])
+        return 1
+        ;;
+      *)
+        print_error "Please answer y or n"
+        ;;
+    esac
+  done
+}
+
+# Check prerequisites
+check_prerequisites() {
+  print_header "Checking Prerequisites"
+  
+  local missing=0
+  
+  if ! command -v node &> /dev/null; then
+    print_error "Node.js is not installed"
+    missing=1
+  else
+    print_success "Node.js $(node -v)"
+  fi
+  
+  if ! command -v pnpm &> /dev/null; then
+    if ! command -v npm &> /dev/null; then
+      print_error "npm/pnpm is not installed"
+      missing=1
+    else
+      print_success "npm $(npm -v)"
+    fi
+  else
+    print_success "pnpm $(pnpm -v)"
+  fi
+  
+  if ! command -v git &> /dev/null; then
+    print_error "git is not installed"
+    missing=1
+  else
+    print_success "git $(git -v | awk '{print $3}')"
+  fi
+  
+  if [ $missing -eq 1 ]; then
+    print_error "Please install missing dependencies and try again"
+    exit 1
+  fi
+}
+
+# Clone or use existing repo
+setup_repo() {
+  print_header "Repository Setup"
+  
+  if [ -d "zwscloud-ui-db" ]; then
+    print_info "Repository already exists at ./zwscloud-ui-db"
+    if ! prompt_yn "Use existing repository?"; then
+      print_info "Removing existing repository..."
+      rm -rf zwscloud-ui-db
+      print_success "Repository removed"
+    else
+      cd zwscloud-ui-db
+      print_success "Using existing repository"
+      return
+    fi
+  fi
+  
+  print_info "Cloning repository..."
+  git clone https://github.com/fitnesshubgym03-debug/zwscloud-ui-db.git
+  cd zwscloud-ui-db
+  print_success "Repository cloned"
+}
+
+# Get configuration
+get_configuration() {
+  print_header "Configuration Setup"
+  
+  # Admin Email
+  ADMIN_EMAIL=$(prompt_input "Admin email address" "admin@example.com")
+  
+  # Admin Password
+  ADMIN_PASSWORD=$(prompt_password "Admin password (min 8 characters)")
+  while [ ${#ADMIN_PASSWORD} -lt 8 ]; do
+    print_error "Password must be at least 8 characters"
+    ADMIN_PASSWORD=$(prompt_password "Admin password (min 8 characters)")
+  done
+  
+  # Admin Display Name
+  ADMIN_DISPLAY_NAME=$(prompt_input "Admin display name" "Administrator")
+  
+  # Payment Gateway
+  print_info "Select payment gateway:"
+  echo "  1) Razorpay (recommended for automatic recurring billing)"
+  echo "  2) Cashfree"
+  GATEWAY=$(prompt_input "Choice [1-2]" "1")
+  
+  if [ "$GATEWAY" = "2" ]; then
+    PAYMENT_GATEWAY="cashfree"
+    CASHFREE_APP_ID=$(prompt_input "Cashfree App ID" "")
+    CASHFREE_SECRET_KEY=$(prompt_password "Cashfree Secret Key")
+  else
+    PAYMENT_GATEWAY="razorpay"
+    RAZORPAY_KEY_ID=$(prompt_input "Razorpay Key ID" "")
+    RAZORPAY_KEY_SECRET=$(prompt_password "Razorpay Key Secret")
+  fi
+  
+  # Domain Configuration
+  print_info "Domain Configuration:"
+  if prompt_yn "Do you have a domain name?"; then
+    DOMAIN=$(prompt_input "Enter your domain" "example.com")
+    USE_SSL="true"
+    print_success "Domain set to: $DOMAIN"
+  else
+    DOMAIN=$(hostname -I | awk '{print $1}')
+    USE_SSL="true"
+    print_info "Using IP address: $DOMAIN"
+    print_info "Self-signed SSL certificate will be generated"
+  fi
+  
+  # Database
+  if prompt_yn "Use PostgreSQL? (recommended)"; then
+    DATABASE_TYPE="postgres"
+    DB_HOST=$(prompt_input "Database host" "localhost")
+    DB_PORT=$(prompt_input "Database port" "5432")
+    DB_NAME=$(prompt_input "Database name" "zwscloud")
+    DB_USER=$(prompt_input "Database user" "postgres")
+    DB_PASSWORD=$(prompt_password "Database password")
+    DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+  else
+    DATABASE_TYPE="mysql"
+    DB_HOST=$(prompt_input "Database host" "localhost")
+    DB_PORT=$(prompt_input "Database port" "3306")
+    DB_NAME=$(prompt_input "Database name" "zwscloud")
+    DB_USER=$(prompt_input "Database user" "root")
+    DB_PASSWORD=$(prompt_password "Database password")
+    DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+  fi
+  
+  # JWT Secret
+  JWT_SECRET=$(openssl rand -base64 32)
+  print_success "Generated JWT secret"
+  
+  print_success "Configuration complete"
+}
+
+# Create .env file
+create_env_file() {
+  print_header "Creating Environment File"
+  
+  cat > .env.local << EOF
+# Admin Credentials
+ADMIN_EMAIL="${ADMIN_EMAIL}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD}"
+ADMIN_DISPLAY_NAME="${ADMIN_DISPLAY_NAME}"
+
+# Database
+DATABASE_URL="${DATABASE_URL}"
+
+# JWT
+JWT_SECRET="${JWT_SECRET}"
+
+# Payment Gateway
+DEFAULT_PAYMENT_GATEWAY="${PAYMENT_GATEWAY}"
+EOF
+
+  if [ "$PAYMENT_GATEWAY" = "razorpay" ]; then
+    cat >> .env.local << EOF
+RAZORPAY_KEY_ID="${RAZORPAY_KEY_ID}"
+RAZORPAY_KEY_SECRET="${RAZORPAY_KEY_SECRET}"
+RAZORPAY_MODE="test"
+EOF
+  else
+    cat >> .env.local << EOF
+CASHFREE_APP_ID="${CASHFREE_APP_ID}"
+CASHFREE_SECRET_KEY="${CASHFREE_SECRET_KEY}"
+CASHFREE_MODE="test"
+EOF
+  fi
+
+  cat >> .env.local << EOF
+
+# Application
+NEXT_PUBLIC_APP_URL="https://${DOMAIN}"
+NEXT_PUBLIC_DOMAIN="${DOMAIN}"
+NODE_ENV="production"
+EOF
+
+  print_success "Environment file created at .env.local"
+}
+
+# Install dependencies
+install_dependencies() {
+  print_header "Installing Dependencies"
+  
+  if command -v pnpm &> /dev/null; then
+    print_info "Using pnpm..."
+    pnpm install
+  elif command -v npm &> /dev/null; then
+    print_info "Using npm..."
+    npm install
+  fi
+  
+  print_success "Dependencies installed"
+}
+
+# Setup database
+setup_database() {
+  print_header "Setting Up Database"
+  
+  print_info "Running database migrations..."
+  if command -v pnpm &> /dev/null; then
+    pnpm db:push --skip-generate
+  else
+    npm run db:push -- --skip-generate
+  fi
+  
+  print_success "Database migrations completed"
+}
+
+# Create admin user
+create_admin() {
+  print_header "Creating Admin User"
+  
+  print_info "Creating admin account..."
+  
+  # Direct database insertion using Node script
+  cat > /tmp/create-admin.js << 'EOFADMIN'
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
+
+async function createAdmin() {
+  const prisma = new PrismaClient();
+  
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const adminName = process.env.ADMIN_DISPLAY_NAME;
+    
+    // Check if admin already exists
+    const existing = await prisma.user.findUnique({
+      where: { email: adminEmail }
+    });
+    
+    if (existing) {
+      console.log('Admin user already exists');
+      process.exit(0);
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    
+    // Create admin
+    const admin = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        name: adminName,
+        hashedPassword: hashedPassword,
+        role: 'super_admin'
+      }
+    });
+    
+    console.log('✓ Admin user created successfully');
+    console.log('  Email:', admin.email);
+    console.log('  Name:', admin.name);
+    process.exit(0);
+  } catch (error) {
+    console.error('✗ Failed to create admin:', error.message);
+    process.exit(1);
+  }
+}
+
+createAdmin();
+EOFADMIN
+
+  if command -v pnpm &> /dev/null; then
+    pnpm exec node /tmp/create-admin.js
+  else
+    npm exec node /tmp/create-admin.js
+  fi
+  
+  print_success "Admin user created"
+}
+
+# Build application
+build_app() {
+  print_header "Building Application"
+  
+  print_info "Building Next.js application..."
+  if command -v pnpm &> /dev/null; then
+    pnpm build
+  else
+    npm run build
+  fi
+  
+  print_success "Application built successfully"
+}
+
+# Setup SSL (optional)
+setup_ssl() {
+  if [ "$USE_SSL" = "true" ] && [[ "$DOMAIN" == *.*.* ]]; then
+    print_header "Setting Up SSL Certificate"
+    
+    if ! command -v certbot &> /dev/null; then
+      print_info "certbot not found, skipping SSL setup"
+      print_info "To setup SSL later, run: sudo certbot certonly --standalone -d $DOMAIN"
+      return
+    fi
+    
+    print_info "Generating SSL certificate for $DOMAIN..."
+    sudo certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos --email "${ADMIN_EMAIL}"
+    
+    if [ $? -eq 0 ]; then
+      print_success "SSL certificate created successfully"
+      print_info "Certificate location: /etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+      print_info "Key location: /etc/letsencrypt/live/${DOMAIN}/privkey.pem"
+    fi
+  fi
+}
+
+# Create startup script
+create_startup_script() {
+  print_header "Creating Startup Script"
+  
+  cat > start.sh << 'EOF'
+#!/bin/bash
+
+# Load environment
+if [ -f .env.local ]; then
+  export $(cat .env.local | grep -v '^#' | xargs)
+fi
+
+# Start Next.js in production
+if command -v pnpm &> /dev/null; then
+  pnpm start
+else
+  npm start
+fi
+EOF
+
+  chmod +x start.sh
+  print_success "Startup script created"
+}
+
+# Verify installation
+verify_installation() {
+  print_header "Verifying Installation"
+  
+  print_info "Checking files..."
+  
+  local files_ok=true
+  
+  if [ ! -f "package.json" ]; then
+    print_error "package.json not found"
+    files_ok=false
+  else
+    print_success "package.json found"
+  fi
+  
+  if [ ! -f ".env.local" ]; then
+    print_error ".env.local not found"
+    files_ok=false
+  else
+    print_success ".env.local configured"
+  fi
+  
+  if [ ! -d "node_modules" ]; then
+    print_error "node_modules not found"
+    files_ok=false
+  else
+    print_success "Dependencies installed"
+  fi
+  
+  if [ ! -d ".next" ]; then
+    print_error "Application not built"
+    files_ok=false
+  else
+    print_success "Application built"
+  fi
+  
+  if [ "$files_ok" = false ]; then
+    print_error "Installation verification failed"
+    return 1
+  fi
+  
+  print_success "Installation verification passed"
+  return 0
+}
+
+# Print startup instructions
+print_instructions() {
+  print_header "Installation Complete!"
+  
+  echo ""
+  echo -e "${GREEN}Your ZWS Cloud application is ready to start!${NC}"
+  echo ""
+  echo -e "${YELLOW}Next Steps:${NC}"
+  echo ""
+  echo "1. Start the application:"
+  echo -e "   ${BLUE}./start.sh${NC}"
+  echo "   or"
+  echo -e "   ${BLUE}pnpm start${NC}"
+  echo ""
+  echo "2. Access the application:"
+  echo -e "   ${BLUE}https://${DOMAIN}${NC}"
+  echo ""
+  echo "3. Admin Login Credentials:"
+  echo -e "   ${BLUE}Email:    ${ADMIN_EMAIL}${NC}"
+  echo -e "   ${BLUE}Password: (the password you entered)${NC}"
+  echo ""
+  echo -e "${YELLOW}Configuration Details:${NC}"
+  echo -e "   Domain:          ${BLUE}${DOMAIN}${NC}"
+  echo -e "   Payment Gateway: ${BLUE}${PAYMENT_GATEWAY}${NC}"
+  echo -e "   Database Type:   ${BLUE}${DATABASE_TYPE}${NC}"
+  echo ""
+  echo -e "${YELLOW}Important Files:${NC}"
+  echo -e "   .env.local       - Environment configuration"
+  echo -e "   start.sh         - Startup script"
+  echo ""
+  echo -e "${YELLOW}Documentation:${NC}"
+  echo -e "   INTEGRATION_SETUP.md - Integration setup guide"
+  echo -e "   IMPLEMENTATION_SUMMARY.md - Feature overview"
+  echo ""
+}
+
+# Main installation flow
+main() {
+  print_header "ZWS Cloud One-Line Installer"
+  
+  echo "Welcome to ZWS Cloud Setup!"
+  echo ""
+  
+  check_prerequisites
+  setup_repo
+  get_configuration
+  create_env_file
+  install_dependencies
+  setup_database
+  create_admin
+  build_app
+  setup_ssl
+  create_startup_script
+  
+  if verify_installation; then
+    print_instructions
+    exit 0
+  else
+    print_error "Installation failed"
+    exit 1
+  fi
+}
+
+# Run main if not sourced
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
