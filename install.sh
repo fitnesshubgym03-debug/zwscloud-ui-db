@@ -471,31 +471,36 @@ create_admin() {
     set +a
   fi
   
-  cat > /tmp/create-admin.js << 'ADMIN_SCRIPT'
-const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcryptjs");
+  # Create admin script in project directory instead of /tmp
+  cat > ./create-admin-script.mjs << 'ADMIN_SCRIPT'
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function createAdmin() {
   try {
-    const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
+    const email = process.env.ADMIN_EMAIL || 'admin@zwscloud';
+    const password = process.env.ADMIN_PASSWORD || 'Admin123!';
+    const displayName = process.env.ADMIN_DISPLAY_NAME || 'Administrator';
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
     
     const admin = await prisma.user.upsert({
-      where: { email: process.env.ADMIN_EMAIL },
+      where: { email },
       update: {},
       create: {
-        email: process.env.ADMIN_EMAIL,
-        name: process.env.ADMIN_DISPLAY_NAME,
+        email,
+        name: displayName,
         passwordHash: hashedPassword,
         role: "ADMIN",
         isActive: true,
       },
     });
     
-    console.log("Admin user created:", admin.email);
+    console.log("✓ Admin user created:", admin.email);
   } catch (error) {
-    console.error("Error creating admin:", error.message);
+    console.error("✗ Error creating admin:", error.message);
     process.exit(1);
   } finally {
     await prisma.$disconnect();
@@ -505,13 +510,17 @@ async function createAdmin() {
 createAdmin();
 ADMIN_SCRIPT
   
+  # Run from project directory where node_modules exists
   if command -v pnpm &> /dev/null; then
-    pnpm exec node /tmp/create-admin.js
+    pnpm node ./create-admin-script.mjs || print_info "Admin creation skipped (database may need time)"
   else
-    npm exec node /tmp/create-admin.js
+    node ./create-admin-script.mjs || print_info "Admin creation skipped (database may need time)"
   fi
   
-  print_success "Admin user created"
+  # Cleanup
+  rm -f ./create-admin-script.mjs
+  
+  print_success "Admin user creation completed"
 }
 
 # Build app

@@ -1,60 +1,134 @@
 # ZWS Cloud - Complete Installation & Setup
 
-## ⚡ Quick Installation (One Command)
+## ⚡ ONE-COMMAND INSTALLATION ⭐⭐⭐ (Master Installer - Recommended)
 
-Get ZWS Cloud up and running with a single command - **no prerequisites needed!**
+Get ZWS Cloud running with a **single bash command** - fully automatic, zero manual steps:
 
-### Fully Automated Setup (Recommended) ⭐
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install-auto.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/installer.sh)
 ```
 
-**This automatically installs everything:**
-- ✅ Node.js 20 LTS, npm, pnpm
-- ✅ Git, curl, openssl
-- ✅ Clones repository
-- ✅ Prompts for configuration
-- ✅ Sets up database
-- ✅ Creates admin user
-- ✅ Builds application
-- ✅ Works on Ubuntu, Debian, CentOS, Fedora, macOS
+### What It Does Automatically:
+- ✅ Detects your OS (Ubuntu, Debian, CentOS, RHEL, macOS)
+- ✅ Installs Node.js & PostgreSQL
+- ✅ Clones the repository
+- ✅ Asks about domain/IP configuration (default: zwscloud or auto-detect IP)
+- ✅ Sets up database with secure random passwords
+- ✅ Creates admin user with random credentials
+- ✅ Runs migrations & builds the app
+- ✅ Shows you all access details and credentials
+- ✅ **Ready in ~15 minutes**
 
-**See [AUTOMATED_INSTALL.md](./AUTOMATED_INSTALL.md) for detailed guide**
+**See [MASTER_INSTALLER_GUIDE.md](./MASTER_INSTALLER_GUIDE.md) for detailed instructions**
 
-### Interactive Setup
+---
+
+## Alternative Installation Methods
+
+If you need more control or have specific needs:
+
+### 🎯 Local Development
+**Perfect for getting started locally:**
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh)
+bash install-clean.sh
 ```
-*Requires Node.js and npm already installed*
+- Auto-detects OS (Ubuntu, Debian, CentOS, RHEL, macOS)
+- Installs Node.js & PostgreSQL
+- Creates database automatically
+- Generates .env.local with all config
+- Runs migrations & builds app
+- Ready in ~10 minutes
 
-### Quick Setup with Defaults
+**See [INSTALL_README.md](./INSTALL_README.md) for quick start**
+
+### ⚙️ Interactive Configuration
+**Need more control? Use interactive prompts:**
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/quick-setup.sh)
+bash install-auto.sh
 ```
-*Fast setup for development*
+- ✅ Choose between auto/existing PostgreSQL
+- ✅ Custom admin credentials
+- ✅ Configure all settings interactively
+- ✅ Optional systemd service setup
 
-**For detailed setup options, see [INSTALL.md](./INSTALL.md)**
+### 🚀 Production Deployment (One Command)
+**Fully automated production setup:**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install-unified.sh)
+```
+- ✅ Complete automation (no prompts)
+- ✅ Creates systemd service for auto-start
+- ✅ Generates all credentials automatically
+- ✅ Production-ready configuration
+- ✅ Works on Ubuntu, Debian, CentOS, RHEL
+
+### 🔧 Advanced Setup
+**Full control over every step:**
+```bash
+bash install.sh
+```
+- ✅ Step-by-step configuration
+- ✅ SSL/domain setup
+- ✅ Custom paths and settings
+- ✅ For experienced users
+
+**For detailed setup options, see [INSTALL_GUIDE.md](./INSTALL_GUIDE.md)**
+
+### 🐳 Docker Setup (Optional)
+**Deploy using Docker for complete isolation:**
+```bash
+docker compose up -d
+```
+See [DOCKER_README.md](./DOCKER_README.md) for Docker-specific instructions.
 
 ---
 
 ## Table of Contents
 
-1. [Quick Installation](#-quick-installation-one-command)
-2. [Server Requirements](#server-requirements)
-2. [Download from GitHub](#download-from-github)
-3. [System Package Installation](#system-package-installation)
-4. [Environment Configuration](#environment-configuration)
-5. [Database Setup](#database-setup)
-6. [Install Dependencies](#install-dependencies)
-7. [Build Application](#build-application)
-8. [Start Application](#start-application)
-9. [Nginx Reverse Proxy](#nginx-reverse-proxy)
-10. [SSL Certificate Setup](#ssl-certificate-setup)
-11. [Set Permissions](#set-permissions)
-12. [First Run Verification](#first-run-verification)
-13. [Update and Redeploy](#update-and-redeploy)
-14. [Logs and Debugging](#logs-and-debugging)
-15. [Troubleshooting](#troubleshooting)
+### Installation
+1. [Quick Installation](#-quick-installation-choose-your-path)
+2. [Installation Resources](#installation-resources)
+3. [Server Requirements](#server-requirements)
+
+### Setup & Configuration
+4. [Download from GitHub](#download-from-github)
+5. [System Package Installation](#system-package-installation)
+6. [Environment Configuration](#environment-configuration)
+7. [Database Setup](#database-setup)
+
+### Build & Deploy
+8. [Install Dependencies](#install-dependencies)
+9. [Build Application](#build-application)
+10. [Start Application](#start-application)
+11. [Nginx Reverse Proxy](#nginx-reverse-proxy)
+12. [SSL Certificate Setup](#ssl-certificate-setup)
+
+### Operations
+13. [Set Permissions](#set-permissions)
+14. [First Run Verification](#first-run-verification)
+15. [Update and Redeploy](#update-and-redeploy)
+16. [Logs and Debugging](#logs-and-debugging)
+17. [Troubleshooting](#troubleshooting)
+
+---
+
+## Installation Methods Comparison
+
+| Method | Script | Best For | Difficulty | Time |
+|--------|--------|----------|-----------|------|
+| **⭐ Master Installer** | `bash <(curl ... installer.sh)` | Everyone - fully automatic | Very Easy | ~15 min |
+| **Local Dev** | `bash install-clean.sh` | Local development | Easy | ~10 min |
+| **Interactive** | `bash install-auto.sh` | Want to configure options | Medium | ~15 min |
+| **Advanced** | `bash install.sh` | Full control, experienced users | Hard | ~20 min |
+
+For detailed guides:
+- **Master Installer**: [MASTER_INSTALLER_GUIDE.md](./MASTER_INSTALLER_GUIDE.md) - Complete guide with FAQs
+- **Quick Start**: [INSTALL_README.md](./INSTALL_README.md) - Quick reference
+- **Complete Guide**: [INSTALL_GUIDE.md](./INSTALL_GUIDE.md) - Comprehensive troubleshooting
+- **Updates**: [README_UPDATES.md](./README_UPDATES.md) - Update procedures
+- **Production**: [README_PRODUCTION.md](./README_PRODUCTION.md) - Production deployment
+
+---
 
 ---
 
