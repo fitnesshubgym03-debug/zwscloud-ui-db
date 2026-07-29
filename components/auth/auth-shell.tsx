@@ -29,7 +29,7 @@ export function AuthShell({
             href="/"
             className="glass inline-flex items-center justify-center rounded-xl p-2"
           >
-            <Logo withText={false} className="h-7 w-7" />
+            <Logo withText={false} asLink={false} className="h-7 w-7" />
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="text-sm text-muted-foreground text-pretty">

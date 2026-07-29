@@ -4,25 +4,39 @@ import { cn } from "@/lib/utils"
 export function Logo({
   className,
   withText = true,
+  asLink = true,
 }: {
   className?: string
   withText?: boolean
+  asLink?: boolean
 }) {
-  return (
-    <Link
-      href="/"
-      className={cn(
-        "flex items-center gap-2 text-foreground",
-        className
-      )}
-      aria-label="ZWS Cloud home"
-    >
+  const content = (
+    <>
       <LogoMark className="h-7 w-7" />
       {withText && (
         <span className="text-base font-semibold tracking-tight">
           ZWS<span className="text-muted-foreground"> Cloud</span>
         </span>
       )}
+    </>
+  )
+
+  const baseClassName = cn(
+    "flex items-center gap-2 text-foreground",
+    className
+  )
+
+  if (!asLink) {
+    return <div className={baseClassName}>{content}</div>
+  }
+
+  return (
+    <Link
+      href="/"
+      className={baseClassName}
+      aria-label="ZWS Cloud home"
+    >
+      {content}
     </Link>
   )
 }
