@@ -131,8 +131,9 @@ model Order {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  invoices Invoice[]
-  payments Payment[]
+  invoices       Invoice[]
+  payments       Payment[]
+  proxmoxVMs     ProxmoxVM[]
 
   @@map("orders")
   @@index([customerId])
