@@ -138,75 +138,124 @@ setup_repo() {
   print_success "Repository cloned"
 }
 
-# Get configuration
+# Get domain first
+get_domain() {
+  print_header "Domain Configuration"
+  
+  print_info "Enter your domain or IP address where ZWS Cloud will be hosted"
+  print_info "Examples: zwscloud.com, app.zwscloud.com, 192.168.1.100, localhost"
+  echo ""
+  
+  DOMAIN=$(prompt_input "Domain/IP address" "")
+  
+  # Validate domain is not empty
+  while [ -z "$DOMAIN" ]; then
+    print_error "Domain/IP cannot be empty"
+    DOMAIN=$(prompt_input "Domain/IP address" "")
+  done
+  
+  print_success "Domain set to: $DOMAIN"
+}
+
+# Ask for setup mode (auto or manual)
+get_setup_mode() {
+  print_header "Setup Mode"
+  
+  echo "Choose your configuration mode:"
+  echo ""
+  echo "  1) AUTO MODE (Recommended - generates all configurations automatically)"
+  echo "  2) MANUAL MODE (Configure each setting step by step)"
+  echo ""
+  
+  SETUP_MODE=$(prompt_input "Choice [1-2]" "1")
+  
+  if [ "$SETUP_MODE" != "1" ] && [ "$SETUP_MODE" != "2" ]; then
+    SETUP_MODE="1"
+  fi
+  
+  if [ "$SETUP_MODE" = "1" ]; then
+    print_success "Auto mode selected - generating configurations..."
+  else
+    print_success "Manual mode selected - please provide details..."
+  fi
+}
+
+# Get configuration (AFTER domain is set)
 get_configuration() {
   print_header "Configuration Setup"
   
-  # Admin Email
-  ADMIN_EMAIL=$(prompt_input "Admin email address" "admin@example.com")
-  
-  # Admin Password
-  ADMIN_PASSWORD=$(prompt_password "Admin password (min 8 characters)")
-  while [ ${#ADMIN_PASSWORD} -lt 8 ]; do
-    print_error "Password must be at least 8 characters"
-    ADMIN_PASSWORD=$(prompt_password "Admin password (min 8 characters)")
-  done
-  
-  # Admin Display Name
-  ADMIN_DISPLAY_NAME=$(prompt_input "Admin display name" "Administrator")
-  
-  echo ""
-  print_info "Payment gateway can be configured later in the admin panel"
-  PAYMENT_GATEWAY="razorpay"
-  
-  # Domain Configuration
-  print_info "Domain Configuration:"
-  if prompt_yn "Do you have a domain name?"; then
-    DOMAIN=$(prompt_input "Enter your domain" "example.com")
-    USE_SSL="true"
-    print_success "Domain set to: $DOMAIN"
-  else
-    DOMAIN=$(hostname -I | awk '{print $1}')
-    USE_SSL="true"
-    print_info "Using IP address: $DOMAIN"
-    print_info "Self-signed SSL certificate will be generated"
-  fi
-  
-  # Database Configuration
-  echo ""
-  print_info "PostgreSQL Database Setup:"
-  echo "  1) Auto-install PostgreSQL (generates random credentials)"
-  echo "  2) Use existing PostgreSQL (provide connection details)"
-  DB_CHOICE=$(prompt_input "Choice [1-2]" "1")
-  
-  if [ "$DB_CHOICE" = "2" ]; then
-    DATABASE_TYPE="postgres"
-    print_info "Enter your PostgreSQL connection details:"
-    DB_HOST=$(prompt_input "Database host" "localhost")
-    DB_PORT=$(prompt_input "Database port" "5432")
-    DB_NAME=$(prompt_input "Database name" "zwscloud")
-    DB_USER=$(prompt_input "Database user" "postgres")
-    DB_PASSWORD=$(prompt_password "Database password")
-    DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
-    print_success "Using existing PostgreSQL database"
-  else
-    DATABASE_TYPE="postgres"
+  if [ "$SETUP_MODE" = "1" ]; then
+    # AUTO MODE
+    print_info "Generating configurations automatically..."
+    
+    ADMIN_EMAIL="admin@zwscloud"
+    ADMIN_PASSWORD=$(openssl rand -base64 32 | tr -d '=' | tr '+/' '-_' | cut -c1-16)
+    ADMIN_DISPLAY_NAME="Administrator"
+    
     DB_HOST="localhost"
     DB_PORT="5432"
     DB_NAME="zwscloud"
     DB_USER="zwscloud_user"
-    # Generate random password
     DB_PASSWORD=$(openssl rand -base64 32 | tr -d '=' | tr '+/' '-_')
-    DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
-    print_success "PostgreSQL will be auto-installed with random credentials"
-    print_info "Database user: $DB_USER"
-    print_info "Database name: $DB_NAME"
+    DATABASE_TYPE="postgres"
+    
+    JWT_SECRET=$(openssl rand -base64 32)
+    
+    USE_SSL="false"
     AUTO_INSTALL_DB=true
+    
+    print_success "Admin email: $ADMIN_EMAIL"
+    print_success "Admin password: $ADMIN_PASSWORD (save this!)"
+    print_success "Database will be auto-installed"
+    
+  else
+    # MANUAL MODE
+    print_info "Admin Credentials"
+    ADMIN_EMAIL=$(prompt_input "Admin email address" "admin@example.com")
+    
+    ADMIN_PASSWORD=$(prompt_password "Admin password (min 8 characters)")
+    while [ ${#ADMIN_PASSWORD} -lt 8 ]; do
+      print_error "Password must be at least 8 characters"
+      ADMIN_PASSWORD=$(prompt_password "Admin password (min 8 characters)")
+    done
+    
+    ADMIN_DISPLAY_NAME=$(prompt_input "Admin display name" "Administrator")
+    
+    echo ""
+    print_info "Database Configuration"
+    echo "  1) Auto-install PostgreSQL (generates random credentials)"
+    echo "  2) Use existing PostgreSQL (provide connection details)"
+    echo ""
+    
+    DB_CHOICE=$(prompt_input "Choice [1-2]" "1")
+    
+    if [ "$DB_CHOICE" = "2" ]; then
+      DATABASE_TYPE="postgres"
+      DB_HOST=$(prompt_input "Database host" "localhost")
+      DB_PORT=$(prompt_input "Database port" "5432")
+      DB_NAME=$(prompt_input "Database name" "zwscloud")
+      DB_USER=$(prompt_input "Database user" "postgres")
+      DB_PASSWORD=$(prompt_password "Database password")
+      DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+      print_success "Using existing PostgreSQL database"
+      USE_SSL="false"
+      AUTO_INSTALL_DB=false
+    else
+      DATABASE_TYPE="postgres"
+      DB_HOST="localhost"
+      DB_PORT="5432"
+      DB_NAME="zwscloud"
+      DB_USER="zwscloud_user"
+      DB_PASSWORD=$(openssl rand -base64 32 | tr -d '=' | tr '+/' '-_')
+      DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+      print_success "PostgreSQL will be auto-installed"
+      USE_SSL="false"
+      AUTO_INSTALL_DB=true
+    fi
+    
+    JWT_SECRET=$(openssl rand -base64 32)
+    print_success "Generated JWT secret"
   fi
-  
-  # JWT Secret
-  JWT_SECRET=$(openssl rand -base64 32)
-  print_success "Generated JWT secret"
   
   print_success "Configuration complete"
 }
@@ -386,9 +435,14 @@ build_app() {
   
   print_info "Building Next.js application..."
   if command -v pnpm &> /dev/null; then
-    pnpm build
+    pnpm build 2>&1 | tail -20
   else
-    npm run build
+    npm run build 2>&1 | tail -20
+  fi
+  
+  if [ ! -d ".next" ]; then
+    print_error "Build failed - .next directory not created"
+    exit 1
   fi
   
   print_success "Application built successfully"
@@ -523,28 +577,56 @@ print_instructions() {
 
 # Main installation flow
 main() {
-  print_header "ZWS Cloud One-Line Installer"
+  print_header "ZWS Cloud Installation"
   
   echo "Welcome to ZWS Cloud Setup!"
   echo ""
   
-  check_prerequisites
-  setup_repo
-  get_configuration
+  # STEP 1: Get domain first
+  get_domain
+  echo ""
   
-  # Auto-install PostgreSQL if selected
+  # STEP 2: Get setup mode
+  get_setup_mode
+  echo ""
+  
+  # STEP 3: Get other configuration
+  get_configuration
+  echo ""
+  
+  # STEP 4: Prerequisites
+  check_prerequisites
+  
+  # STEP 5: Setup repo
+  setup_repo
+  
+  # STEP 6: Auto-install PostgreSQL if selected
   if [ "$AUTO_INSTALL_DB" = true ]; then
     auto_install_postgres
   fi
   
+  # STEP 7: Create environment file
   create_env_file
+  
+  # STEP 8: Install dependencies
   install_dependencies
+  
+  # STEP 9: Setup database
   setup_database
+  
+  # STEP 10: Create admin
   create_admin
+  
+  # STEP 11: Build app
   build_app
+  
+  # STEP 12: Setup SSL
   setup_ssl
+  
+  # STEP 13: Create startup script
   create_startup_script
   
+  # STEP 14: Verify
   if verify_installation; then
     print_instructions
     exit 0
