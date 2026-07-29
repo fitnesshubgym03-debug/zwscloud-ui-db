@@ -2,11 +2,11 @@
 
 /**
  * Admin User Seeding Script
- * This script creates the admin user in MySQL with the credentials from environment variables
+ * This script creates the admin user in the unified User table with the credentials from environment variables
  * Run with: pnpm seed:admin
  * 
  * Required environment variables:
- * - DATABASE_URL: MySQL connection string
+ * - DATABASE_URL: PostgreSQL connection string
  * - ADMIN_EMAIL: Admin user email (e.g., samvpslio@gmail.com)
  * - ADMIN_PASSWORD: Admin user password
  * - ADMIN_DISPLAY_NAME: Display name for admin (optional, defaults to "Admin")
@@ -38,9 +38,9 @@ async function seedAdmin() {
   try {
     console.log(`\n🔐 Starting admin user setup for: ${adminEmail}\n`)
 
-    // Check if admin user already exists
+    // Check if admin user already exists in User table
     console.log('🔍 Checking for existing admin user...')
-    const existingAdmin = await prisma.adminProfile.findUnique({
+    const existingAdmin = await prisma.user.findUnique({
       where: { email: adminEmail.toLowerCase() },
     })
 
@@ -50,7 +50,7 @@ async function seedAdmin() {
 
       // Update password
       const hashedPassword = await bcrypt.hash(adminPassword, 10)
-      await prisma.adminProfile.update({
+      await prisma.user.update({
         where: { id: existingAdmin.id },
         data: { hashedPassword },
       })
@@ -60,16 +60,16 @@ async function seedAdmin() {
       return
     }
 
-    // Create new admin user
-    console.log('✓ Admin user not found, creating new user...')
+    // Create new admin user in unified User table
+    console.log('✓ Admin user not found, creating new user in unified User table...')
     const hashedPassword = await bcrypt.hash(adminPassword, 10)
 
-    const newAdmin = await prisma.adminProfile.create({
+    const newAdmin = await prisma.user.create({
       data: {
         email: adminEmail.toLowerCase(),
-        username: adminEmail.split('@')[0],
-        displayName: adminDisplayName,
+        name: adminDisplayName,
         hashedPassword,
+        role: 'super_admin',
       },
     })
 

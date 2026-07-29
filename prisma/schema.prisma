@@ -44,27 +44,7 @@ model AdminProfile {
   @@index([email])
 }
 
-// Customers
-model Customer {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  phone     String?
-  company   String?
-  address   Json?
-  metadata  Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  orders Order[]
-  customConfigs CustomConfig[]
-  invoices Invoice[]
-  payments Payment[]
-  user User?
-
-  @@map("customers")
-  @@index([email])
-}
 
 // VPS Products
 model Product {
@@ -191,7 +171,7 @@ model Invoice {
   @@index([status])
 }
 
-// Payments (Cashfree Integration)
+// Payments (Cashfree & Razorpay Integration)
 model Payment {
   id                  String    @id @default(cuid())
   orderId             String?
@@ -200,24 +180,128 @@ model Payment {
   invoice             Invoice?  @relation(fields: [invoiceId], references: [id])
   customerId          String?
   customer            Customer? @relation(fields: [customerId], references: [id])
-  gateway             String    @default("cashfree")
+  gateway             String    @default("razorpay") // "cashfree" | "razorpay"
   gatewayOrderId      String?
   gatewayPaymentId    String?
   gatewaySessionId    String?
+  mandateId           String?   // Razorpay mandate ID for recurring payments
   amount              Decimal   @db.Decimal(10, 2)
   currency            String    @default("INR")
-  status              String    @default("pending")
-  paymentMethod       String?
+  status              String    @default("pending") // "pending" | "authorized" | "captured" | "failed" | "refunded"
+  paymentMethod       String?   // "card" | "netbanking" | "wallet" | "emandate"
   paymentMethodDetails Json?
   gatewayResponse     Json?
   errorMessage        String?
+  isRecurring         Boolean   @default(false)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   completedAt         DateTime?
 
   @@map("payments")
   @@index([orderId])
+  @@index([customerId])
   @@index([status])
+  @@index([mandateId])
+}
+
+// Razorpay Mandates for recurring payments
+model RazorpayMandate {
+  id                  String    @id @default(cuid())
+  customerId          String
+  customer            Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  mandateId           String    @unique // Razorpay mandate ID
+  status              String    @default("issued") // "issued" | "pending" | "active" | "failed" | "cancelled"
+  maxAmount           Decimal   @db.Decimal(10, 2)
+  amount              Decimal   @db.Decimal(10, 2)
+  currency            String    @default("INR")
+  method              String    // "emandate" | "nach" | "netbanking" | "card"
+  interval            String    // "monthly" | "quarterly" | "halfyearly" | "yearly"
+  period              String    // "daily" | "weekly" | "monthly" | "quarterly" | "halfyearly" | "yearly"
+  startAt             DateTime
+  endAt               DateTime?
+  tokenId             String?   // Token ID for card-based mandates
+  description         String?
+  notes               Json      @default("{}")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  nextPaymentAt       DateTime?
+  cancelledAt         DateTime?
+
+  @@map("razorpay_mandates")
+  @@index([customerId])
+  @@index([status])
+}
+
+// Proxmox VM Instances
+model ProxmoxVM {
+  id                  String    @id @default(cuid())
+  customerId          String
+  customer            Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderId             String?
+  order               Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  vmId                String    // Proxmox VMID
+  hostname            String    // VM hostname
+  node                String    // Proxmox node name
+  status              String    @default("provisioning") // "provisioning" | "running" | "stopped" | "failed"
+  cpuCores            Int
+  memoryMb            Int
+  diskGb              Int
+  diskType            String    @default("nvme") // "nvme" | "ssd" | "hdd"
+  ipv4Address         String?
+  ipv6Address         String?
+  macAddress          String?
+  rootPassword        String?   // Encrypted password
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  suspendedAt         DateTime? // When VM was suspended/stopped
+  terminatedAt        DateTime? // When VM was deleted
+  metadata            Json      @default("{}")
+
+  @@map("proxmox_vms")
+  @@index([customerId])
+  @@index([vmId])
+  @@index([status])
+}
+
+// Proxmox Account Connection
+model ProxmoxAccount {
+  id                  String    @id @default(cuid())
+  customerId          String    @unique
+  customer            Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  apiToken            String    // Encrypted Proxmox API token
+  apiUser             String    // Proxmox API user (e.g., "root@pam!terraform")
+  realm               String    @default("pam") // "pam" | "pve" | etc
+  status              String    @default("active") // "active" | "inactive"
+  resourceQuota       Json      @default("{\"vms\":10,\"storage_gb\":1000}") // Resource limits
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("proxmox_accounts")
+}
+
+// Extend Customer model with relations
+model Customer {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  phone     String?
+  company   String?
+  address   Json?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders             Order[]
+  customConfigs      CustomConfig[]
+  invoices           Invoice[]
+  payments           Payment[]
+  razorpayMandates   RazorpayMandate[]
+  proxmoxVMs         ProxmoxVM[]
+  proxmoxAccount     ProxmoxAccount?
+  user               User?
+
+  @@map("customers")
+  @@index([email])
 }
 
 // Analytics Events

@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { SignJWT } from "jose"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/db"
-
-// JWT_SECRET must be set in environment variables - never hardcode
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || ""
-)
+import { createToken, setAuthCookie } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,15 +23,47 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get admin from database using Prisma
-    const adminUser = await prisma.adminProfile.findUnique({
+    // First try to find user in User table
+    let adminUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     })
+
+    // If not found, check legacy AdminProfile for backward compatibility
+    if (!adminUser) {
+      const legacyAdmin = await prisma.adminProfile.findUnique({
+        where: { email: email.toLowerCase() },
+      })
+
+      if (legacyAdmin) {
+        // Migrate legacy admin to new User table
+        const hashedPassword = await bcrypt.hash(
+          Buffer.from(legacyAdmin.hashedPassword, 'base64').toString('utf-8'),
+          10
+        ).catch(() => legacyAdmin.hashedPassword)
+
+        adminUser = await prisma.user.create({
+          data: {
+            email: legacyAdmin.email.toLowerCase(),
+            name: legacyAdmin.displayName,
+            hashedPassword: hashedPassword,
+            role: "super_admin",
+          },
+        })
+      }
+    }
 
     if (!adminUser) {
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
+      )
+    }
+
+    // Verify user is admin
+    if (adminUser.role !== "admin" && adminUser.role !== "super_admin") {
+      return NextResponse.json(
+        { error: "Insufficient permissions" },
+        { status: 403 }
       )
     }
 
@@ -52,38 +78,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Update last login
-    await prisma.adminProfile.update({
+    await prisma.user.update({
       where: { id: adminUser.id },
       data: { lastLogin: new Date() },
     })
 
-    // Create JWT token
-    const token = await new SignJWT({
+    // Create JWT token using unified auth utility
+    const token = await createToken({
+      id: adminUser.id,
       email: adminUser.email,
-      displayName: adminUser.displayName,
-      role: "super_admin",
+      name: adminUser.name,
+      role: adminUser.role as "user" | "admin" | "super_admin",
     })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setExpirationTime("24h")
-      .sign(JWT_SECRET)
 
-    // Set HTTP-only cookie
-    const cookieStore = await cookies()
-    cookieStore.set("admin_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24,
-      path: "/",
-    })
+    // Set auth cookie
+    await setAuthCookie(token)
 
     return NextResponse.json({
       success: true,
       user: {
+        id: adminUser.id,
         email: adminUser.email,
-        displayName: adminUser.displayName,
-        role: "super_admin",
+        name: adminUser.name,
+        role: adminUser.role,
       },
     })
   } catch (error) {
