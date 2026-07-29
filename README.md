@@ -1,10 +1,37 @@
-# ZWS Cloud - Production Installation Guide
+# ZWS Cloud - Complete Installation & Setup
 
-Complete step-by-step guide for installing ZWS Cloud on Ubuntu 22.04+ without Docker.
+## ⚡ Quick Installation (One Command)
+
+Get ZWS Cloud up and running with a single command:
+
+### Interactive Setup (Recommended)
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh)
+```
+
+### Quick Setup with Defaults
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/quick-setup.sh)
+```
+
+The installer will:
+- ✅ Install all dependencies (Node.js, database, etc.)
+- ✅ Clone the repository
+- ✅ Prompt for admin credentials
+- ✅ Configure payment gateway (Razorpay/Cashfree)
+- ✅ Set up domain and SSL certificate
+- ✅ Configure database (PostgreSQL/MySQL)
+- ✅ Create admin user
+- ✅ Build and verify the application
+
+**For detailed setup options, see [INSTALL.md](./INSTALL.md)**
+
+---
 
 ## Table of Contents
 
-1. [Server Requirements](#server-requirements)
+1. [Quick Installation](#-quick-installation-one-command)
+2. [Server Requirements](#server-requirements)
 2. [Download from GitHub](#download-from-github)
 3. [System Package Installation](#system-package-installation)
 4. [Environment Configuration](#environment-configuration)
