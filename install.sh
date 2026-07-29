@@ -192,9 +192,12 @@ get_configuration() {
     DB_PORT="5432"
     DB_NAME="zwscloud"
     DB_USER="zwscloud_user"
-    DB_PASSWORD=$(openssl rand -base64 32 | tr -d '=' | tr '+/' '-_')
+    # Generate safe password without special characters
+    DB_PASSWORD=$(openssl rand -base64 24 | tr '+/' '0-' | tr -d '=')
     DATABASE_TYPE="postgres"
-    DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    # URL encode password for DATABASE_URL
+    local url_encoded_password="${DB_PASSWORD}"
+    DATABASE_URL="postgresql://${DB_USER}:${url_encoded_password}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
     
     JWT_SECRET=$(openssl rand -base64 32)
     
@@ -311,10 +314,27 @@ auto_install_postgres() {
   # Create database and user
   print_step "Creating database and user..."
   
-  # First, check if user exists
-  sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1 || \
+  # Escape special characters in password for SQL
+  local escaped_password="${DB_PASSWORD//\'/\'\'}"
+  
+  # First, check if user exists and drop if necessary to ensure fresh start
+  sudo -u postgres psql << PSQL_EOF 2>/dev/null || true
+DROP USER IF EXISTS "$DB_USER";
+PSQL_EOF
+  
+  # Create user with properly escaped password
   sudo -u postgres psql << PSQL_EOF
-CREATE USER "$DB_USER" WITH PASSWORD '$DB_PASSWORD';
+CREATE USER "$DB_USER" WITH PASSWORD '$escaped_password';
+PSQL_EOF
+  
+  if [ $? -ne 0 ]; then
+    print_error "Failed to create PostgreSQL user"
+    return 1
+  fi
+  
+  # Drop database if exists to ensure clean state
+  sudo -u postgres psql << PSQL_EOF 2>/dev/null || true
+DROP DATABASE IF EXISTS "$DB_NAME";
 PSQL_EOF
   
   # Create database
@@ -326,6 +346,11 @@ GRANT CREATE ON SCHEMA public TO "$DB_USER";
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "$DB_USER";
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "$DB_USER";
 PSQL_EOF
+  
+  if [ $? -ne 0 ]; then
+    print_error "Failed to create PostgreSQL database"
+    return 1
+  fi
   
   print_success "Database '$DB_NAME' and user '$DB_USER' created"
 }
