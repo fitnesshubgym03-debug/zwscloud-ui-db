@@ -24,6 +24,27 @@ const items = [
     role: "CTO",
     company: "Kelvin Labs",
   },
+  {
+    quote:
+      "We switched to ZWS Cloud for their exceptional DDoS protection and low-latency network. The difference is night and day.",
+    author: "David Kumar",
+    role: "DevOps Lead",
+    company: "Streamify",
+  },
+  {
+    quote:
+      "Their transparent pricing model is refreshing. No hidden fees, full control, and the performance is incredible for the cost.",
+    author: "Sarah Mitchell",
+    role: "Founder & CEO",
+    company: "DataFlow Systems",
+  },
+  {
+    quote:
+      "ZWS Cloud&apos;s 99.99% uptime SLA and lightning-fast support team have been essential for our mission-critical workloads.",
+    author: "James Rodriguez",
+    role: "Infrastructure Engineer",
+    company: "TechCore Solutions",
+  },
 ]
 
 export function Testimonials() {
@@ -35,7 +56,7 @@ export function Testimonials() {
           title="What our customers say"
           description="Sample reviews. Replace with verified customer quotes before production launch."
         />
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {items.map((t) => (
             <TestimonialCard key={t.author} {...t} />
           ))}
