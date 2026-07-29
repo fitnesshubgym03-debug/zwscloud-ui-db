@@ -294,14 +294,37 @@ auto_install_postgres() {
   
   print_success "PostgreSQL service started"
   
+  # Wait for PostgreSQL to be ready
+  print_step "Waiting for PostgreSQL to be ready..."
+  sleep 3
+  
+  # Check if PostgreSQL is accepting connections
+  local attempt=0
+  while [ $attempt -lt 10 ]; do
+    if sudo -u postgres psql -c "SELECT 1" > /dev/null 2>&1; then
+      break
+    fi
+    sleep 1
+    attempt=$((attempt + 1))
+  done
+  
   # Create database and user
   print_step "Creating database and user..."
+  
+  # First, check if user exists
+  sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1 || \
   sudo -u postgres psql << PSQL_EOF
-CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD' CREATEDB;
-CREATE DATABASE $DB_NAME OWNER $DB_USER;
-GRANT CONNECT ON DATABASE $DB_NAME TO $DB_USER;
-GRANT USAGE ON SCHEMA public TO $DB_USER;
-GRANT CREATE ON SCHEMA public TO $DB_USER;
+CREATE USER "$DB_USER" WITH PASSWORD '$DB_PASSWORD';
+PSQL_EOF
+  
+  # Create database
+  sudo -u postgres psql << PSQL_EOF
+CREATE DATABASE "$DB_NAME" OWNER "$DB_USER";
+GRANT CONNECT ON DATABASE "$DB_NAME" TO "$DB_USER";
+GRANT USAGE ON SCHEMA public TO "$DB_USER";
+GRANT CREATE ON SCHEMA public TO "$DB_USER";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "$DB_USER";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "$DB_USER";
 PSQL_EOF
   
   print_success "Database '$DB_NAME' and user '$DB_USER' created"
@@ -373,12 +396,40 @@ setup_database() {
     exit 1
   fi
   
+  # Test database connection
+  print_info "Testing database connection..."
+  local db_host=$(echo "$DATABASE_URL" | sed 's/.*@\([^:]*\).*/\1/')
+  local db_port=$(echo "$DATABASE_URL" | sed 's/.*:\([0-9]*\)\/.*/\1/')
+  
+  if ! nc -z "$db_host" "$db_port" 2>/dev/null; then
+    # If nc is not available, try with psql
+    if ! command -v psql &> /dev/null; then
+      print_error "Cannot verify database connection - neither nc nor psql available"
+      exit 1
+    fi
+  fi
+  
+  print_info "Database connection successful"
   print_info "Running database migrations..."
   
-  if command -v pnpm &> /dev/null; then
-    pnpm db:push --skip-generate
-  else
-    npm run db:push -- --skip-generate
+  # Add retry logic for database push
+  local retry=0
+  while [ $retry -lt 3 ]; do
+    if command -v pnpm &> /dev/null; then
+      pnpm db:push --skip-generate && break
+    else
+      npm run db:push -- --skip-generate && break
+    fi
+    retry=$((retry + 1))
+    if [ $retry -lt 3 ]; then
+      print_info "Retrying database setup (attempt $((retry + 1))/3)..."
+      sleep 2
+    fi
+  done
+  
+  if [ $retry -eq 3 ]; then
+    print_error "Database setup failed after 3 attempts"
+    exit 1
   fi
   
   print_success "Database migrations completed"
@@ -571,6 +622,8 @@ main() {
   # STEP 6: Auto-install PostgreSQL if selected
   if [ "$AUTO_INSTALL_DB" = true ]; then
     auto_install_postgres
+    print_info "Waiting for PostgreSQL to stabilize..."
+    sleep 5
   fi
   
   # STEP 7: Create environment file
