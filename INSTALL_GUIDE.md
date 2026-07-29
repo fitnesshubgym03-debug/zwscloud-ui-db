@@ -1,290 +1,434 @@
 # ZWS Cloud Installation Guide
 
-## Quick Start - Unified Installer (Recommended)
+## Installation Scripts Overview
 
-The new unified installer handles everything automatically with a single command:
+This project includes four installation scripts optimized for different use cases. Choose based on your needs:
+
+| Script | Best For | Complexity | Customization |
+|--------|----------|-----------|---------------|
+| `install-clean.sh` | Local dev / Fresh installs | Low | Minimal |
+| `install-auto.sh` | Interactive setup | Medium | High |
+| `install-unified.sh` | Production deployment | Medium | Low |
+| `install.sh` | Advanced configuration | High | Very High |
+
+---
+
+## Quick Start - Clean Install (Recommended for Development)
+
+Perfect for getting started locally or on a fresh server:
+
+```bash
+bash install-clean.sh
+```
+
+### What it does:
+✓ Auto-detects your OS (Ubuntu, Debian, CentOS, RHEL, macOS)  
+✓ Installs Node.js and npm  
+✓ Installs and starts PostgreSQL  
+✓ Creates database with secure random credentials  
+✓ Installs all project dependencies  
+✓ Runs database migrations  
+✓ Builds the application  
+✓ Generates `.env.local` with all required config  
+
+### System Requirements:
+- CPU: 2+ cores
+- RAM: 2GB+
+- Disk: 10GB+
+- Supported: Ubuntu 20.04+, Debian 11+, CentOS 8+, RHEL 8+, macOS 12+
+
+### After Installation:
+```bash
+npm run dev
+# Visit http://localhost:3000
+```
+
+Output will show:
+- ✓ Installation complete message
+- Admin email: `admin@example.com`
+- Admin password: (saved in `.env.local`)
+- Database connection details
+
+---
+
+## Automated Installation with Customization
+
+For interactive setup with configuration options:
+
+```bash
+bash install-auto.sh
+```
+
+### Features:
+✓ Interactive prompts for all settings  
+✓ Choose between auto-install or existing PostgreSQL  
+✓ Custom admin email/password  
+✓ Domain configuration  
+✓ Creates systemd service (optional)  
+✓ Better for production environments  
+
+### Setup Flow:
+1. Detects OS and installs dependencies
+2. Prompts for admin credentials
+3. Chooses database option (auto or existing)
+4. Configures environment
+5. Installs project
+6. Creates service
+
+---
+
+## Production Installation (One-Command)
+
+For production servers with automatic everything:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install-unified.sh)
 ```
 
-### What the installer does:
-✓ Detects your operating system  
-✓ Installs all system dependencies (Node.js, PostgreSQL, git, etc.)  
-✓ Auto-installs PostgreSQL with random secure credentials  
-✓ Clones/updates the repository  
-✓ Configures environment variables automatically  
-✓ Builds the application  
-✓ Sets up a systemd service for auto-startup  
-✓ Starts the application  
+### Features:
+✓ Full automation - no prompts  
+✓ Creates systemd service for auto-start  
+✓ Installs to `~/zwscloud` directory  
+✓ Generates all passwords automatically  
+✓ Ready for immediate production use  
 
-### Supported Systems:
-- Ubuntu 18.04+
-- Debian 9+
-- CentOS 7+
-- RHEL 7+
-- Fedora 30+
-
-### After Installation:
-Once the installer completes, you'll see:
-- **Access URL**: Your application URL (e.g., `http://192.168.1.100:3000`)
-- **Admin Email**: Your admin login email
-- **Admin Password**: Your randomly generated admin password (save this!)
-- **Database Info**: Connection details
-
----
-
-## Managing Your Installation
-
-### Update Your Application (Live Testing)
-
-Use the update script to pull latest changes and test live:
-
+### Post-Installation Commands:
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/update.sh)
-```
-
-The update script provides:
-1. **Full Update** - Pull changes + install deps + rebuild + restart (recommended)
-2. **Quick Update** - Pull changes + restart only
-3. **Development Mode** - Rebuild + restart + watch logs
-4. **Check Status** - View service status and resource usage
-5. **View Logs** - Stream live application logs
-6. **Restart Service** - Restart the application
-7. **Stop Service** - Stop the application
-8. **Start Service** - Start the application
-
----
-
-## Service Management
-
-Once installed, manage your application with systemd:
-
-### View Application Status
-```bash
-sudo systemctl status zwscloud
-```
-
-### Start/Stop/Restart
-```bash
+# Start service
 sudo systemctl start zwscloud
-sudo systemctl stop zwscloud
-sudo systemctl restart zwscloud
-```
 
-### View Live Logs
-```bash
+# View status
+sudo systemctl status zwscloud
+
+# View logs
 sudo journalctl -u zwscloud -f
 ```
 
-### View Recent Logs
+---
+
+## Troubleshooting Installation
+
+### PostgreSQL Connection Errors
+
+**Problem:** `FATAL: password authentication failed`
+
+**Solutions:**
 ```bash
-sudo journalctl -u zwscloud -n 50
+# 1. Check PostgreSQL is running
+sudo systemctl status postgresql
+
+# 2. Verify database exists
+sudo -u postgres psql -l | grep zwscloud
+
+# 3. Reset credentials
+sudo -u postgres psql << PSQL_EOF
+ALTER USER zwscloud_user WITH PASSWORD 'newpassword';
+PSQL_EOF
+
+# 4. Update .env.local with new password
 ```
 
-### Enable Auto-startup on Boot
+### Node.js Installation Issues
+
+**Problem:** `command not found: node`
+
+**Solutions:**
 ```bash
-sudo systemctl enable zwscloud
+# Clear NodeSource cache
+sudo rm -rf /etc/apt/sources.list.d/nodesource.list
+sudo apt update
+
+# Reinstall Node.js
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verify
+node -v && npm -v
+```
+
+### Dependencies Installation Fails
+
+**Problem:** `npm ERR!` or `pnpm ERR!`
+
+**Solutions:**
+```bash
+# Clear cache
+npm cache clean --force
+
+# Remove node_modules
+rm -rf node_modules package-lock.json
+
+# Reinstall with retries
+npm install --legacy-peer-deps --prefer-offline
+
+# Or use pnpm if available
+pnpm install
+```
+
+### Database Migrations Fail
+
+**Problem:** `db:push` command fails
+
+**Solutions:**
+```bash
+# 1. Generate Prisma client
+npm run db:generate
+
+# 2. Test connection
+psql $DATABASE_URL -c "SELECT 1"
+
+# 3. Push with skip-generate
+npm run db:push --skip-generate
+
+# 4. If still failing, check DATABASE_URL
+echo $DATABASE_URL
+```
+
+### Build Fails
+
+**Problem:** `npm run build` fails
+
+**Solutions:**
+```bash
+# 1. Ensure environment variables are set
+set -a
+source .env.local
+set +a
+
+# 2. Clean build cache
+rm -rf .next
+npm cache clean --force
+
+# 3. Regenerate Prisma
+npm run db:generate
+
+# 4. Try build again
+npm run build 2>&1 | tail -50  # See last 50 lines
 ```
 
 ---
 
 ## Environment Configuration
 
-After installation, edit the environment file if needed:
+The installation creates `.env.local` or `.env.production.local`:
 
+```env
+# Database
+DATABASE_URL="postgresql://zwscloud_user:password@localhost:5432/zwscloud"
+
+# Admin
+ADMIN_EMAIL="admin@example.com"
+ADMIN_PASSWORD="auto_generated_password"
+ADMIN_DISPLAY_NAME="Administrator"
+
+# Auth
+JWT_SECRET="auto_generated_jwt_secret"
+
+# Application
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NODE_ENV="development"
+```
+
+### For Production:
 ```bash
-nano ~/zwscloud/.env.local
-```
+# 1. Update app URL
+NEXT_PUBLIC_APP_URL="https://yourdomain.com"
 
-### Available Variables:
-```
-DATABASE_URL=postgresql://user:password@host:port/database
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your_secure_password
-JWT_SECRET=random_jwt_secret
-NEXT_PUBLIC_APP_URL=http://your-domain.com
-DEFAULT_PAYMENT_GATEWAY=razorpay
-NODE_ENV=production
-```
+# 2. Change NODE_ENV
+NODE_ENV="production"
 
-### After Changes:
-```bash
-sudo systemctl restart zwscloud
+# 3. Use strong passwords (not auto-generated)
+ADMIN_PASSWORD="YourVerySecurePassword123!"
+
+# 4. Store in vault (don't commit to git)
 ```
 
 ---
 
-## SSL/HTTPS Setup
+## Service Management (Production)
 
-For production, set up SSL with Let's Encrypt:
+After `install-unified.sh` or when using systemd:
 
-### Using Certbot (Recommended)
 ```bash
-sudo apt-get install certbot python3-certbot-nginx -y
-
-# Get certificate
-sudo certbot certonly --standalone -d your-domain.com
-
-# The certificates will be at:
-# /etc/letsencrypt/live/your-domain.com/fullchain.pem
-# /etc/letsencrypt/live/your-domain.com/privkey.pem
-```
-
-### Auto-renewal
-```bash
-sudo systemctl enable certbot.timer
-sudo systemctl start certbot.timer
-```
-
----
-
-## Troubleshooting
-
-### Application won't start
-```bash
-# Check service status
+# View status
 sudo systemctl status zwscloud
 
-# View detailed logs
-sudo journalctl -u zwscloud -n 100 -v
-
-# Restart service
+# Start/Stop/Restart
+sudo systemctl start zwscloud
+sudo systemctl stop zwscloud
 sudo systemctl restart zwscloud
+
+# Enable auto-start on boot
+sudo systemctl enable zwscloud
+
+# View live logs
+sudo journalctl -u zwscloud -f
+
+# View last 50 lines
+sudo journalctl -u zwscloud -n 50
+
+# Follow with grep filter
+sudo journalctl -u zwscloud -f | grep ERROR
 ```
 
-### Database connection issues
+---
+
+## SSL/HTTPS Setup (Production)
+
+Using Let's Encrypt with Certbot:
+
 ```bash
-# Check PostgreSQL status
-sudo systemctl status postgresql
+# 1. Install Certbot
+sudo apt-get install certbot python3-certbot-nginx -y
 
-# Connect to database
-sudo -u postgres psql -c "SELECT version();"
+# 2. Get certificate
+sudo certbot certonly --standalone -d yourdomain.com
 
-# Check database exists
-sudo -u postgres psql -l | grep zwscloud
-```
+# 3. Configure in .env.local
+NEXT_PUBLIC_APP_URL="https://yourdomain.com"
 
-### Out of disk space
-```bash
-# Check disk usage
-df -h
-
-# Clear npm cache
-npm cache clean --force
-
-# Check application logs size
-du -sh ~/zwscloud/
-```
-
-### Port 3000 already in use
-```bash
-# Find process using port 3000
-sudo lsof -i :3000
-
-# Kill the process (if needed)
-sudo kill -9 <PID>
-
-# Restart service
+# 4. Update reverse proxy (nginx/Apache) to forward to :3000
+# 5. Restart service
 sudo systemctl restart zwscloud
 ```
 
 ---
 
-## Performance Monitoring
+## Post-Installation Steps
 
-### Check Memory/CPU Usage
+### 1. Change Admin Password
 ```bash
-# Real-time monitoring
-top -p $(pgrep -f zwscloud)
-
-# One-time check
-ps aux | grep zwscloud | grep -v grep
+# Login to admin panel at http://localhost:3000/admin
+# Use credentials from installation
+# Change password immediately
 ```
 
-### Check Disk I/O
+### 2. Configure Payment Gateway
+- Visit Admin Dashboard → Settings → Payment Gateway
+- Configure Razorpay or your preferred gateway
+
+### 3. Backup Database
 ```bash
-iostat -x 1 5
+# Manual backup
+sudo -u postgres pg_dump zwscloud > backup.sql
+
+# Scheduled daily backup
+sudo crontab -e
+# Add: 0 2 * * * sudo -u postgres pg_dump -Fc zwscloud > /backups/zwscloud_$(date +\%Y\%m\%d).sql
 ```
 
-### Monitor Network
+### 4. Monitor Logs
 ```bash
-netstat -an | grep :3000
-ss -tuln | grep 3000
+# Development
+npm run dev  # Logs in terminal
+
+# Production
+sudo journalctl -u zwscloud -f
 ```
 
 ---
 
-## Upgrading
-
-To upgrade to the latest version:
+## Quick Commands Reference
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/update.sh)
-# Select option 1: Full update
+# Development
+npm run dev        # Start dev server
+npm run build      # Build for production
+npm start          # Start prod server
+
+# Database
+npm run db:push    # Sync schema
+npm run db:studio  # Open database UI
+npm run db:generate  # Regenerate Prisma client
+
+# Maintenance
+npm run lint       # Check code quality
+npm cache clean --force  # Clear npm cache
+
+# Production (systemd)
+sudo systemctl start zwscloud
+sudo systemctl restart zwscloud
+sudo journalctl -u zwscloud -f
 ```
 
-Or manually:
+---
+
+## Upgrading the Application
+
+### Development:
+```bash
+git pull origin main
+npm install
+npm run db:push
+npm run build
+npm start
+```
+
+### Production (with systemd):
 ```bash
 cd ~/zwscloud
 git pull origin main
 npm install
-npm run migrate
+npm run db:push
 npm run build
 sudo systemctl restart zwscloud
 ```
 
 ---
 
-## Backing Up Your Data
-
-### Database Backup
-```bash
-sudo -u postgres pg_dump -Fc zwscloud > ~/zwscloud_backup_$(date +%Y%m%d).sql
-```
-
-### Full Backup
-```bash
-tar -czf ~/zwscloud_full_backup_$(date +%Y%m%d).tar.gz ~/zwscloud/
-```
-
-### Automated Daily Backup
-```bash
-# Add to crontab
-sudo crontab -e
-
-# Add this line for daily 2 AM backup:
-0 2 * * * sudo -u postgres pg_dump -Fc zwscloud > /home/backups/zwscloud_$(date \+\%Y\%m\%d).sql
-```
-
----
-
 ## Security Best Practices
 
-1. **Change Admin Password** - Done in admin panel after login
-2. **Use Strong Database Password** - Auto-generated, stored in `.env.local`
-3. **Enable Firewall** - Restrict access to your application
-4. **Update Regularly** - Use the update script weekly
-5. **Monitor Logs** - Review logs for suspicious activity
-6. **Backup Data** - Daily backups are essential
-7. **Use HTTPS** - Set up SSL certificate (see SSL Setup section)
-8. **Disable Root SSH** - Use key-based authentication
+1. **Passwords**: Change admin password immediately after install
+2. **Environment**: Never commit `.env.local` to git
+3. **Backups**: Daily database backups to secure location
+4. **Updates**: Keep Node.js and PostgreSQL updated
+5. **Firewall**: Restrict access to port 3000
+6. **HTTPS**: Use SSL in production
+7. **Monitoring**: Review logs regularly
+8. **Secrets**: Store API keys in `.env.local`, not code
 
 ---
 
-## Support
+## Cleanup / Rollback
 
-For issues or questions:
-- Check logs: `sudo journalctl -u zwscloud -f`
-- Review the troubleshooting section above
-- Visit: https://github.com/fitnesshubgym03-debug/zwscloud-ui-db
+If you need to start fresh:
+
+```bash
+# Stop service (if running)
+sudo systemctl stop zwscloud 2>/dev/null || true
+
+# Remove project files
+rm -rf ~/zwscloud zwscloud-ui-db
+
+# Remove database
+sudo -u postgres psql << EOF
+DROP DATABASE IF EXISTS zwscloud;
+DROP USER IF EXISTS zwscloud_user;
+EOF
+
+# Remove service file (if created)
+sudo rm -f /etc/systemd/system/zwscloud.service
+sudo systemctl daemon-reload
+
+# Now run installer again
+bash install-clean.sh
+```
+
+---
+
+## Support & Resources
+
+- **Logs**: `sudo journalctl -u zwscloud -f` or `npm run dev`
+- **Database**: `npm run db:studio`
+- **GitHub**: https://github.com/fitnesshubgym03-debug/zwscloud-ui-db
+- **Issues**: File issues on GitHub with error logs
 
 ---
 
 ## Version Information
 
-- **Installer**: Unified Installer v2.0
-- **Last Updated**: 2024
-- **Supported Node**: 20.x LTS
-- **Supported PostgreSQL**: 12+
+- **Last Updated**: July 2024
+- **Node.js**: 20.x LTS
+- **PostgreSQL**: 12+
+- **Supported OS**: Ubuntu 20.04+, Debian 11+, CentOS 8+, RHEL 8+, macOS 12+
 
