@@ -53,13 +53,44 @@ handle_error() {
 
 trap 'handle_error ${LINENO}' ERR
 
+# Clone or update repository
+clone_repository() {
+  print_header "Setting Up Repository"
+  
+  if [ -f "package.json" ]; then
+    print_success "Already in project directory"
+    return
+  fi
+  
+  # Check if zwscloud directory exists
+  if [ -d "zwscloud-ui-db" ]; then
+    print_step "Updating existing repository..."
+    cd zwscloud-ui-db
+    git pull origin main 2>/dev/null || true
+  else
+    print_step "Cloning repository..."
+    git clone https://github.com/fitnesshubgym03-debug/zwscloud-ui-db.git zwscloud-ui-db || {
+      print_error "Failed to clone repository"
+      return 1
+    }
+    cd zwscloud-ui-db
+  fi
+  
+  if [ ! -f "package.json" ]; then
+    print_error "package.json not found after cloning"
+    return 1
+  fi
+  
+  print_success "Repository ready"
+}
+
 # Check if running in project directory
 check_environment() {
   print_header "Checking Environment"
   
   if [ ! -f "package.json" ]; then
-    print_error "package.json not found - please run this script from the project root"
-    exit 1
+    print_error "package.json not found"
+    return 1
   fi
   
   print_success "Running from project root"
@@ -431,6 +462,7 @@ main() {
     exit 0
   fi
   
+  clone_repository || exit 1
   check_environment
   detect_os
   install_nodejs
