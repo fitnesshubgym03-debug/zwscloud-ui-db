@@ -1,0 +1,225 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                     ZWS CLOUD - QUICK START GUIDE                          ║
+║                                                                            ║
+║  Production-ready installation with automatic setup, payment gateways,    ║
+║  Proxmox integration, and complete infrastructure automation.            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 ONE-LINE INSTALLATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPTION 1: Interactive Full Setup (Recommended for Production)
+────────────────────────────────────────────────────────────
+
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh)
+
+  ✓ Prompts for admin credentials
+  ✓ Configures payment gateway
+  ✓ Sets up domain and SSL
+  ✓ Creates database
+  ✓ Generates startup script
+  ✓ Full verification
+
+
+OPTION 2: Quick Setup with Defaults (Good for Development)
+──────────────────────────────────────────────────────────
+
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/quick-setup.sh)
+
+  ✓ Uses sensible defaults
+  ✓ Faster installation
+  ✓ Good for testing
+  ✓ Can be customized later
+
+
+OPTION 3: Manual Installation
+──────────────────────────────
+
+git clone https://github.com/fitnesshubgym03-debug/zwscloud-ui-db.git
+cd zwscloud-ui-db
+bash install.sh          # or: bash quick-setup.sh
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ WHAT YOU GET
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ADMIN SYSTEM
+  ✓ Secure admin authentication
+  ✓ Role-based access control
+  ✓ Admin dashboard
+  ✓ User management
+
+PAYMENT PROCESSING
+  ✓ Razorpay (with automatic recurring billing)
+  ✓ Cashfree support
+  ✓ E-mandate system for subscriptions
+  ✓ Webhook integration
+  ✓ Test & production modes
+
+INFRASTRUCTURE AUTOMATION
+  ✓ Proxmox VE integration
+  ✓ Automatic VM provisioning
+  ✓ VM lifecycle management
+  ✓ Resource tracking
+
+SECURITY
+  ✓ HTTPS/SSL with auto-renewal
+  ✓ JWT authentication
+  ✓ Password hashing
+  ✓ Secure cookies
+  ✓ API protection
+
+CONFIGURATION
+  ✓ PostgreSQL/MySQL support
+  ✓ Multiple payment gateways
+  ✓ Custom domain setup
+  ✓ Auto SSL certificate
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 INSTALLER WILL ASK FOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ADMIN CREDENTIALS
+   • Email address (e.g., admin@example.com)
+   • Password (minimum 8 characters)
+   • Display name (optional)
+
+2. PAYMENT GATEWAY
+   • Choose Razorpay (recommended) or Cashfree
+   • Enter API credentials (get from dashboard)
+
+3. DOMAIN CONFIGURATION
+   • Enter domain name OR use server IP
+   • SSL certificate auto-generated if domain provided
+
+4. DATABASE
+   • Choose PostgreSQL (recommended) or MySQL
+   • Enter connection details
+   • Or use provided default local database
+
+5. VERIFICATION & BUILD
+   • Installer verifies everything works
+   • Builds the application
+   • Creates startup script
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 AFTER INSTALLATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+START THE APPLICATION
+  ./start.sh
+  or
+  pnpm start
+
+ACCESS YOUR APPLICATION
+  Admin Dashboard:  https://your-domain.com/admin
+  
+  Login Credentials:
+    Email:    admin@example.com
+    Password: Admin@12345 (or what you set)
+
+CONFIGURE FOR PRODUCTION
+  1. Update payment credentials from test to live
+  2. Change admin password
+  3. Configure payment webhooks
+  4. Setup Proxmox credentials (if using)
+  5. Enable SSL auto-renewal
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 SYSTEM REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Minimum:                       Recommended:
+• Node.js v18+               • Node.js v20+
+• 2GB RAM                    • 4GB RAM
+• 10GB disk space            • 20GB disk space
+• 2 CPU cores                • 4+ CPU cores
+• Ubuntu 22.04+              • Ubuntu 22.04+ LTS
+
+Pre-installed Tools:
+  ✓ npm or pnpm
+  ✓ git
+  ✓ curl (for one-line installation)
+
+Optional:
+  ✓ PostgreSQL v12+ (or MySQL v8+)
+  ✓ Certbot (SSL management)
+  ✓ Proxmox VE (infrastructure)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔒 SECURITY & COMPLIANCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Automatic password hashing with bcryptjs
+✓ JWT token authentication with configurable expiry
+✓ HTTP-only secure cookies
+✓ HTTPS/TLS encryption with auto-renewal
+✓ Row-level security on database
+✓ Admin role verification on protected routes
+✓ Payment signature verification
+✓ Webhook signature validation
+✓ SQL injection prevention (parameterized queries)
+✓ Input validation and sanitization
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 DOCUMENTATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Main Documentation:
+  • README.md - Overview and quick start
+  • INSTALL.md - Complete installation guide
+  • INSTALLER_REFERENCE.md - Detailed installer reference
+  • DEPLOYMENT_READY.md - Deployment checklist
+
+Feature Documentation:
+  • INTEGRATION_SETUP.md - Payment & Proxmox setup
+  • IMPLEMENTATION_SUMMARY.md - Technical details
+
+API Documentation:
+  • /api/admin/auth/login - Admin authentication
+  • /api/payments/create - Create payments
+  • /api/payments/razorpay-webhook - Payment webhook
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🆘 TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Admin login not working?
+  → Run: pnpm seed:admin
+  → Check DATABASE_URL in .env.local
+  → Verify admin user exists in database
+
+Database connection error?
+  → Verify database is running
+  → Check connection string format
+  → Ensure user has permissions
+
+Port already in use?
+  → Use: PORT=3001 ./start.sh
+  → Or kill process: lsof -ti:3000 | xargs kill -9
+
+SSL certificate error?
+  → Run: sudo certbot renew
+  → Check certificate: sudo certbot certificates
+  → Force renewal: sudo certbot certonly --force-renewal
+
+Payment not working?
+  → Verify API credentials in .env.local
+  → Check payment mode (test vs live)
+  → Enable webhooks in payment dashboard
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎉 READY TO DEPLOY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your ZWS Cloud application is fully configured and ready for production!
+
+Run the installer now:
+
+  bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh)
+
+Questions? Check the documentation or create an issue on GitHub.
+
+Happy deploying! 🚀
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

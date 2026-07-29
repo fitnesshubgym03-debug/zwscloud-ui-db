@@ -20,8 +20,8 @@ export async function POST() {
       )
     }
 
-    // Check if admin user already exists
-    const existingAdmin = await prisma.adminProfile.findUnique({
+    // Check if admin user already exists in User table
+    const existingAdmin = await prisma.user.findUnique({
       where: { email: adminEmail.toLowerCase() },
     })
 
@@ -36,13 +36,13 @@ export async function POST() {
     // Hash the password
     const hashedPassword = await bcrypt.hash(adminPassword, 10)
 
-    // Create admin profile using Prisma
-    const adminUser = await prisma.adminProfile.create({
+    // Create admin user in unified User table
+    const adminUser = await prisma.user.create({
       data: {
         email: adminEmail.toLowerCase(),
-        username: adminEmail.split("@")[0],
-        displayName: adminDisplayName,
+        name: adminDisplayName,
         hashedPassword,
+        role: "super_admin",
       },
     })
 
@@ -50,7 +50,8 @@ export async function POST() {
       success: true,
       message: "Admin user created successfully",
       email: adminEmail,
-      displayName: adminDisplayName,
+      name: adminDisplayName,
+      id: adminUser.id,
     })
   } catch (error) {
     console.error("Admin init error:", error)

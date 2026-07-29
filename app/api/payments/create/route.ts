@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { createPaymentOrder } from "@/lib/cashfree"
+import * as paymentGateway from "@/lib/payment-gateway"
 import { calculateTax } from "@/lib/pricing"
 
 function generateOrderNumber(): string {
@@ -12,7 +12,14 @@ function generateOrderNumber(): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { productId, customConfigId, term = 1, customerDetails } = body
+    const {
+      productId,
+      customConfigId,
+      term = 1,
+      customerDetails,
+      gateway, // Optional: "cashfree" or "razorpay"
+      setupMandate = false, // For recurring payments with Razorpay
+    } = body
 
     if (!customerDetails?.email || !customerDetails?.phone) {
       return NextResponse.json(
@@ -106,28 +113,82 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Create Cashfree payment order
+    // Create payment order with selected gateway
     try {
-      const paymentOrder = await createPaymentOrder({
-        orderId: orderNumber,
-        orderAmount: totalAmount,
-        customerDetails: {
+      const selectedGateway = (gateway || paymentGateway.getDefaultGateway()) as
+        | "cashfree"
+        | "razorpay"
+
+      // For Razorpay with mandate setup
+      if (selectedGateway === "razorpay" && setupMandate) {
+        // Create mandate for recurring billing
+        const mandateResponse = await paymentGateway.createMandate(
+          {
+            customerId: customer.id,
+            customerEmail: customerDetails.email,
+            customerPhone: customerDetails.phone,
+            customerName: customerDetails.name,
+            maxAmount: totalAmount * 1.2, // Allow 20% variance
+            amount: totalAmount,
+            currency: "INR",
+            interval: "monthly",
+            description: productData?.name || "VPS Subscription",
+          },
+          selectedGateway
+        )
+
+        // Create mandate record
+        const mandate = await prisma.razorpayMandate.create({
+          data: {
+            customerId: customer.id,
+            mandateId: mandateResponse.id,
+            status: "pending",
+            maxAmount: totalAmount * 1.2,
+            amount: totalAmount,
+            currency: "INR",
+            method: "emandate",
+            interval: "monthly",
+            period: "monthly",
+            startAt: new Date(),
+            description: productData?.name || "VPS Subscription",
+          },
+        })
+
+        return NextResponse.json({
+          success: true,
+          orderNumber,
+          orderId: order.id,
+          mandateId: mandate.id,
+          mandateUrl: mandateResponse.url,
+          mandateStatus: mandateResponse.status,
+          amount: totalAmount,
+          setupMandate: true,
+        })
+      }
+
+      // Regular one-time payment
+      const paymentOrder = await paymentGateway.createPaymentOrder(
+        {
+          orderId: orderNumber,
+          amount: totalAmount,
+          currency: "INR",
           customerId: customer.id,
           customerEmail: customerDetails.email,
           customerPhone: customerDetails.phone,
           customerName: customerDetails.name,
+          description: productData?.name || "Custom VPS Configuration",
         },
-        orderNote: productData?.name || "Custom VPS Configuration",
-      })
+        selectedGateway
+      )
 
       // Create payment record
-      await prisma.payment.create({
+      const paymentRecord = await prisma.payment.create({
         data: {
           orderId: order.id,
           customerId: customer.id,
-          gateway: "cashfree",
-          gatewayOrderId: paymentOrder.cfOrderId,
-          gatewaySessionId: paymentOrder.paymentSessionId,
+          gateway: selectedGateway,
+          gatewayOrderId: paymentOrder.id,
+          gatewaySessionId: paymentOrder.sessionId,
           amount: totalAmount,
           currency: "INR",
           status: "pending",
@@ -138,9 +199,11 @@ export async function POST(request: NextRequest) {
         success: true,
         orderNumber,
         orderId: order.id,
-        paymentSessionId: paymentOrder.paymentSessionId,
-        paymentUrl: paymentOrder.payments.url,
+        paymentId: paymentRecord.id,
+        paymentSessionId: paymentOrder.sessionId || paymentOrder.id,
+        paymentUrl: paymentOrder.paymentUrl,
         amount: totalAmount,
+        gateway: selectedGateway,
       })
     } catch (paymentError) {
       // Update order status to failed
@@ -149,7 +212,7 @@ export async function POST(request: NextRequest) {
         data: { status: "payment_failed" },
       })
 
-      console.error("Cashfree payment error:", paymentError)
+      console.error("Payment creation error:", paymentError)
       return NextResponse.json(
         { error: "Failed to initialize payment. Please try again." },
         { status: 500 }

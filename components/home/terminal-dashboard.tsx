@@ -31,21 +31,24 @@ import { Activity, Gauge, Signal, ArrowDownToLine, ArrowUpToLine } from "lucide-
 const BOOT_TIMESTAMP = new Date("2024-06-01T00:00:00Z").getTime()
 
 function useUptime() {
-  const [now, setNow] = useState(() => Date.now())
+  const [uptime, setUptime] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null)
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const calculateUptime = () => {
+      const diff = Math.max(0, Date.now() - BOOT_TIMESTAMP)
+      const days = Math.floor(diff / 86_400_000)
+      const hours = Math.floor((diff % 86_400_000) / 3_600_000)
+      const minutes = Math.floor((diff % 3_600_000) / 60_000)
+      const seconds = Math.floor((diff % 60_000) / 1000)
+      setUptime({ days, hours, minutes, seconds })
+    }
+    
+    calculateUptime()
+    const id = setInterval(calculateUptime, 1000)
     return () => clearInterval(id)
   }, [])
 
-  return useMemo(() => {
-    const diff = Math.max(0, now - BOOT_TIMESTAMP)
-    const days = Math.floor(diff / 86_400_000)
-    const hours = Math.floor((diff % 86_400_000) / 3_600_000)
-    const minutes = Math.floor((diff % 3_600_000) / 60_000)
-    const seconds = Math.floor((diff % 60_000) / 1000)
-    return { days, hours, minutes, seconds }
-  }, [now])
+  return uptime ?? { days: 0, hours: 0, minutes: 0, seconds: 0 }
 }
 
 type Metrics = {
@@ -61,13 +64,15 @@ function randBetween(min: number, max: number, decimals = 1) {
   return Math.round(v * p) / p
 }
 
+const INITIAL_METRICS: Metrics = {
+  ping: 2,
+  latency: 18,
+  download: 12.4,
+  upload: 9.8,
+}
+
 function useSimulatedMetrics(interval = 1400) {
-  const [metrics, setMetrics] = useState<Metrics>({
-    ping: 2,
-    latency: 18,
-    download: 12.4,
-    upload: 9.8,
-  })
+  const [metrics, setMetrics] = useState<Metrics>(INITIAL_METRICS)
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -108,10 +113,10 @@ const LOG_POOL: Array<Omit<LogLine, "id">> = [
   { level: "ok", tag: "peer", text: "Private mesh link up · lat=0.8ms" },
 ]
 
+const INITIAL_LOGS: LogLine[] = LOG_POOL.slice(0, 5).map((l, i) => ({ ...l, id: i }))
+
 function useSimulatedLogs(max = 5, tickMs = 1800) {
-  const [logs, setLogs] = useState<LogLine[]>(() =>
-    LOG_POOL.slice(0, max).map((l, i) => ({ ...l, id: i }))
-  )
+  const [logs, setLogs] = useState<LogLine[]>(INITIAL_LOGS)
   const counter = useRef(max)
 
   useEffect(() => {
@@ -165,7 +170,7 @@ export function TerminalDashboard() {
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">
               up{" "}
-              <span className="text-foreground">
+              <span className="text-foreground" suppressHydrationWarning>
                 {uptime.days}d {pad(uptime.hours)}:{pad(uptime.minutes)}:{pad(uptime.seconds)}
               </span>
             </span>
