@@ -1,20 +1,43 @@
 # ZWS Cloud - Complete Installation & Setup
 
-## ⚡ Quick Installation (Choose Your Path)
+## ⚡ ONE-COMMAND INSTALLATION ⭐⭐⭐ (Master Installer - Recommended)
 
-Get ZWS Cloud up and running - pick the installer that fits your needs:
+Get ZWS Cloud running with a **single bash command** - fully automatic, zero manual steps:
 
-### 🎯 Local Development (Recommended) ⭐
-**Perfect for getting started quickly:**
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/installer.sh)
+```
+
+### What It Does Automatically:
+- ✅ Detects your OS (Ubuntu, Debian, CentOS, RHEL, macOS)
+- ✅ Installs Node.js & PostgreSQL
+- ✅ Clones the repository
+- ✅ Asks about domain/IP configuration (default: zwscloud or auto-detect IP)
+- ✅ Sets up database with secure random passwords
+- ✅ Creates admin user with random credentials
+- ✅ Runs migrations & builds the app
+- ✅ Shows you all access details and credentials
+- ✅ **Ready in ~15 minutes**
+
+**See [MASTER_INSTALLER_GUIDE.md](./MASTER_INSTALLER_GUIDE.md) for detailed instructions**
+
+---
+
+## Alternative Installation Methods
+
+If you need more control or have specific needs:
+
+### 🎯 Local Development
+**Perfect for getting started locally:**
 ```bash
 bash install-clean.sh
 ```
-- ✅ Auto-detects OS (Ubuntu, Debian, CentOS, RHEL, macOS)
-- ✅ Installs Node.js & PostgreSQL
-- ✅ Creates database automatically
-- ✅ Generates .env.local with all config
-- ✅ Runs migrations & builds app
-- ✅ Ready in ~10 minutes
+- Auto-detects OS (Ubuntu, Debian, CentOS, RHEL, macOS)
+- Installs Node.js & PostgreSQL
+- Creates database automatically
+- Generates .env.local with all config
+- Runs migrations & builds app
+- Ready in ~10 minutes
 
 **See [INSTALL_README.md](./INSTALL_README.md) for quick start**
 
@@ -89,19 +112,18 @@ See [DOCKER_README.md](./DOCKER_README.md) for Docker-specific instructions.
 
 ---
 
-## Installation Resources
+## Installation Methods Comparison
 
-Quick reference for all installation methods:
-
-| Use Case | Script | Difficulty | Time |
-|----------|--------|-----------|------|
-| **Local Dev** | `bash install-clean.sh` | Easy | ~10 min |
-| **Interactive** | `bash install-auto.sh` | Medium | ~15 min |
-| **Production** | `bash <(curl ... install-unified.sh)` | Medium | ~15 min |
-| **Advanced** | `bash install.sh` | Hard | ~20 min |
+| Method | Script | Best For | Difficulty | Time |
+|--------|--------|----------|-----------|------|
+| **⭐ Master Installer** | `bash <(curl ... installer.sh)` | Everyone - fully automatic | Very Easy | ~15 min |
+| **Local Dev** | `bash install-clean.sh` | Local development | Easy | ~10 min |
+| **Interactive** | `bash install-auto.sh` | Want to configure options | Medium | ~15 min |
+| **Advanced** | `bash install.sh` | Full control, experienced users | Hard | ~20 min |
 
 For detailed guides:
-- **Development**: [INSTALL_README.md](./INSTALL_README.md) - Quick reference
+- **Master Installer**: [MASTER_INSTALLER_GUIDE.md](./MASTER_INSTALLER_GUIDE.md) - Complete guide with FAQs
+- **Quick Start**: [INSTALL_README.md](./INSTALL_README.md) - Quick reference
 - **Complete Guide**: [INSTALL_GUIDE.md](./INSTALL_GUIDE.md) - Comprehensive troubleshooting
 - **Updates**: [README_UPDATES.md](./README_UPDATES.md) - Update procedures
 - **Production**: [README_PRODUCTION.md](./README_PRODUCTION.md) - Production deployment
