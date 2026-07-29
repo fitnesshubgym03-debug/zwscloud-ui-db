@@ -1,22 +1,20 @@
 #!/bin/bash
 
-###############################################################################
-# ZWS Cloud - One-Line Installer Script
-# Usage: bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh)
-# Or:    curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh | bash
-###############################################################################
+# ZWS Cloud Installation Script
+# This script installs ZWS Cloud with PostgreSQL on a Linux server
 
 set -e
 
-# Colors for output
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Functions
+# Print functions
 print_header() {
+  echo ""
   echo -e "${BLUE}===============================================${NC}"
   echo -e "${BLUE}$1${NC}"
   echo -e "${BLUE}===============================================${NC}"
@@ -34,16 +32,17 @@ print_info() {
   echo -e "${YELLOW}ℹ $1${NC}"
 }
 
+# Input functions
 prompt_input() {
   local prompt="$1"
   local default="$2"
   local input
   
   if [ -z "$default" ]; then
-    read -p "$(echo -e ${YELLOW}${prompt}${NC}): " input
+    read -p "$(echo -e "${YELLOW}${prompt}${NC}"): " input
   else
-    read -p "$(echo -e ${YELLOW}${prompt} [${default}]${NC}): " input
-    input=${input:-$default}
+    read -p "$(echo -e "${YELLOW}${prompt} [${default}]${NC}"): " input
+    input="${input:-$default}"
   fi
   
   echo "$input"
@@ -53,7 +52,7 @@ prompt_password() {
   local prompt="$1"
   local input
   
-  read -sp "$(echo -e ${YELLOW}${prompt}${NC}): " input
+  read -sp "$(echo -e "${YELLOW}${prompt}${NC}"): " input
   echo ""
   echo "$input"
 }
@@ -63,7 +62,7 @@ prompt_yn() {
   local response
   
   while true; do
-    read -p "$(echo -e ${YELLOW}${prompt} [y/n]${NC}): " response
+    read -p "$(echo -e "${YELLOW}${prompt} [y/n]${NC}"): " response
     case "$response" in
       [yY][eE][sS]|[yY])
         return 0
@@ -82,36 +81,33 @@ prompt_yn() {
 check_prerequisites() {
   print_header "Checking Prerequisites"
   
-  local missing=0
-  
-  if ! command -v node &> /dev/null; then
-    print_error "Node.js is not installed"
-    missing=1
-  else
-    print_success "Node.js $(node -v)"
-  fi
-  
-  if ! command -v pnpm &> /dev/null; then
-    if ! command -v npm &> /dev/null; then
-      print_error "npm/pnpm is not installed"
-      missing=1
-    else
-      print_success "npm $(npm -v)"
-    fi
-  else
-    print_success "pnpm $(pnpm -v)"
-  fi
-  
-  if ! command -v git &> /dev/null; then
-    print_error "git is not installed"
-    missing=1
-  else
-    print_success "git $(git -v | awk '{print $3}')"
-  fi
-  
-  if [ $missing -eq 1 ]; then
-    print_error "Please install missing dependencies and try again"
+  # Check if running as root
+  if [ "$EUID" -ne 0 ]; then 
+    print_error "This script must be run as root"
     exit 1
+  fi
+  
+  # Check required commands
+  local required_commands=("git" "curl" "sudo")
+  for cmd in "${required_commands[@]}"; do
+    if ! command -v "$cmd" &> /dev/null; then
+      print_error "$cmd is not installed"
+      exit 1
+    fi
+  done
+  
+  print_success "All prerequisites met"
+}
+
+# Detect OS
+detect_os() {
+  if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS=$ID
+  elif type lsb_release >/dev/null 2>&1; then
+    OS=$(lsb_release -si | tr '[:upper:]' '[:lower:]')
+  else
+    OS="unknown"
   fi
 }
 
@@ -121,14 +117,14 @@ setup_repo() {
   
   if [ -d "zwscloud-ui-db" ]; then
     print_info "Repository already exists at ./zwscloud-ui-db"
-    if ! prompt_yn "Use existing repository?"; then
-      print_info "Removing existing repository..."
-      rm -rf zwscloud-ui-db
-      print_success "Repository removed"
-    else
+    if prompt_yn "Use existing repository?"; then
       cd zwscloud-ui-db
       print_success "Using existing repository"
       return
+    else
+      print_info "Removing existing repository..."
+      rm -rf zwscloud-ui-db
+      print_success "Repository removed"
     fi
   fi
   
@@ -146,18 +142,18 @@ get_domain() {
   print_info "Examples: zwscloud.com, app.zwscloud.com, 192.168.1.100, localhost"
   echo ""
   
-  DOMAIN=$(prompt_input "Domain/IP address" "")
+  DOMAIN=$(prompt_input "Domain/IP address" "zwscloud.com")
   
   # Validate domain is not empty
-  while [ -z "$DOMAIN" ]; then
+  while [ -z "$DOMAIN" ]; do
     print_error "Domain/IP cannot be empty"
-    DOMAIN=$(prompt_input "Domain/IP address" "")
+    DOMAIN=$(prompt_input "Domain/IP address" "zwscloud.com")
   done
   
   print_success "Domain set to: $DOMAIN"
 }
 
-# Ask for setup mode (auto or manual)
+# Ask for setup mode
 get_setup_mode() {
   print_header "Setup Mode"
   
@@ -180,7 +176,7 @@ get_setup_mode() {
   fi
 }
 
-# Get configuration (AFTER domain is set)
+# Get configuration
 get_configuration() {
   print_header "Configuration Setup"
   
@@ -208,7 +204,6 @@ get_configuration() {
     print_success "Admin email: $ADMIN_EMAIL"
     print_success "Admin password: $ADMIN_PASSWORD (save this!)"
     print_success "Database will be auto-installed"
-    
   else
     # MANUAL MODE
     print_info "Admin Credentials"
@@ -261,12 +256,68 @@ get_configuration() {
   print_success "Configuration complete"
 }
 
-# Create .env file
+# Auto-install PostgreSQL
+auto_install_postgres() {
+  print_header "Auto-Installing PostgreSQL"
+  
+  if command -v psql &> /dev/null; then
+    print_success "PostgreSQL already installed"
+    return
+  fi
+  
+  print_step "Installing PostgreSQL..."
+  
+  if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+    print_step "Installing via apt..."
+    apt-get update > /dev/null 2>&1
+    DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql postgresql-contrib > /dev/null 2>&1
+    print_success "PostgreSQL installed"
+    
+    print_step "Starting PostgreSQL service..."
+    systemctl start postgresql
+    systemctl enable postgresql
+    
+  elif [ "$OS" = "centos" ] || [ "$OS" = "fedora" ] || [ "$OS" = "rhel" ]; then
+    print_step "Installing via yum..."
+    yum install -y postgresql-server postgresql-contrib > /dev/null 2>&1
+    postgresql-setup initdb || true
+    print_success "PostgreSQL installed"
+    
+    print_step "Starting PostgreSQL service..."
+    systemctl start postgresql
+    systemctl enable postgresql
+  else
+    print_error "Automatic PostgreSQL installation not supported on this OS"
+    print_info "Please install PostgreSQL manually"
+    return 1
+  fi
+  
+  print_success "PostgreSQL service started"
+  
+  # Create database and user
+  print_step "Creating database and user..."
+  sudo -u postgres psql << PSQL_EOF
+CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD' CREATEDB;
+CREATE DATABASE $DB_NAME OWNER $DB_USER;
+GRANT CONNECT ON DATABASE $DB_NAME TO $DB_USER;
+GRANT USAGE ON SCHEMA public TO $DB_USER;
+GRANT CREATE ON SCHEMA public TO $DB_USER;
+PSQL_EOF
+  
+  print_success "Database '$DB_NAME' and user '$DB_USER' created"
+}
+
+# Print step function
+print_step() {
+  echo -e "${YELLOW}→ $1${NC}"
+}
+
+# Create env file
 create_env_file() {
   print_header "Creating Environment File"
   
   cat > .env.local << EOF
-# Admin Credentials
+# Admin
 ADMIN_EMAIL="${ADMIN_EMAIL}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD}"
 ADMIN_DISPLAY_NAME="${ADMIN_DISPLAY_NAME}"
@@ -277,64 +328,13 @@ DATABASE_URL="${DATABASE_URL}"
 # JWT
 JWT_SECRET="${JWT_SECRET}"
 
-# Payment Gateway (configure in admin panel)
-DEFAULT_PAYMENT_GATEWAY="razorpay"
-
 # Application
 NEXT_PUBLIC_APP_URL="https://${DOMAIN}"
 NEXT_PUBLIC_DOMAIN="${DOMAIN}"
 NODE_ENV="production"
 EOF
-
-  print_success "Environment file created at .env.local"
-}
-
-# Auto-install PostgreSQL
-auto_install_postgres() {
-  print_header "Auto-Installing PostgreSQL"
   
-  if command -v psql &> /dev/null; then
-    print_info "PostgreSQL already installed"
-    return
-  fi
-  
-  print_info "Installing PostgreSQL..."
-  
-  if [[ "$OS" == "ubuntu" ]] || [[ "$OS" == "debian" ]]; then
-    sudo apt-get update > /dev/null 2>&1
-    sudo apt-get install -y postgresql postgresql-contrib > /dev/null 2>&1
-    print_success "PostgreSQL installed"
-  elif [[ "$OS" == "centos" ]] || [[ "$OS" == "fedora" ]]; then
-    sudo yum install -y postgresql-server postgresql-contrib > /dev/null 2>&1
-    sudo postgresql-setup initdb || true
-    print_success "PostgreSQL installed"
-  else
-    print_info "Please install PostgreSQL manually"
-    return
-  fi
-  
-  # Start PostgreSQL service
-  if [[ "$OS" == "ubuntu" ]] || [[ "$OS" == "debian" ]]; then
-    sudo systemctl start postgresql
-    sudo systemctl enable postgresql
-  elif [[ "$OS" == "centos" ]] || [[ "$OS" == "fedora" ]]; then
-    sudo systemctl start postgresql
-    sudo systemctl enable postgresql
-  fi
-  
-  print_success "PostgreSQL service started"
-  
-  # Create database and user
-  print_info "Creating database and user..."
-  sudo -u postgres psql << PSQL_EOF
-CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD' CREATEDB;
-CREATE DATABASE $DB_NAME OWNER $DB_USER;
-GRANT CONNECT ON DATABASE $DB_NAME TO $DB_USER;
-GRANT USAGE ON SCHEMA public TO $DB_USER;
-GRANT CREATE ON SCHEMA public TO $DB_USER;
-PSQL_EOF
-  
-  print_success "Database '$DB_NAME' and user '$DB_USER' created"
+  print_success "Environment file created"
 }
 
 # Install dependencies
@@ -347,6 +347,9 @@ install_dependencies() {
   elif command -v npm &> /dev/null; then
     print_info "Using npm..."
     npm install
+  else
+    print_error "Neither pnpm nor npm found"
+    exit 1
   fi
   
   print_success "Dependencies installed"
@@ -355,8 +358,6 @@ install_dependencies() {
 # Setup database
 setup_database() {
   print_header "Setting Up Database"
-  
-  print_info "Running database migrations..."
   
   # Source environment variables
   if [ -f .env.local ]; then
@@ -372,6 +373,8 @@ setup_database() {
     exit 1
   fi
   
+  print_info "Running database migrations..."
+  
   if command -v pnpm &> /dev/null; then
     pnpm db:push --skip-generate
   else
@@ -385,63 +388,46 @@ setup_database() {
 create_admin() {
   print_header "Creating Admin User"
   
-  print_info "Creating admin account..."
-  
-  # Direct database insertion using Node script
-  cat > /tmp/create-admin.js << 'EOFADMIN'
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
-
-async function createAdmin() {
-  const prisma = new PrismaClient();
-  
-  try {
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    const adminName = process.env.ADMIN_DISPLAY_NAME;
-    
-    // Check if admin already exists
-    const existing = await prisma.user.findUnique({
-      where: { email: adminEmail }
-    });
-    
-    if (existing) {
-      console.log('Admin user already exists');
-      process.exit(0);
-    }
-    
-    // Hash password
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
-    
-    // Create admin
-    const admin = await prisma.user.create({
-      data: {
-        email: adminEmail,
-        name: adminName,
-        hashedPassword: hashedPassword,
-        role: 'super_admin'
-      }
-    });
-    
-    console.log('✓ Admin user created successfully');
-    console.log('  Email:', admin.email);
-    console.log('  Name:', admin.name);
-    process.exit(0);
-  } catch (error) {
-    console.error('✗ Failed to create admin:', error.message);
-    process.exit(1);
-  }
-}
-
-createAdmin();
-EOFADMIN
-
-  # Load environment variables for admin creation
+  # Load environment variables
   if [ -f .env.local ]; then
     set -a
     source .env.local
     set +a
   fi
+  
+  cat > /tmp/create-admin.js << 'ADMIN_SCRIPT'
+const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
+
+const prisma = new PrismaClient();
+
+async function createAdmin() {
+  try {
+    const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
+    
+    const admin = await prisma.user.upsert({
+      where: { email: process.env.ADMIN_EMAIL },
+      update: {},
+      create: {
+        email: process.env.ADMIN_EMAIL,
+        name: process.env.ADMIN_DISPLAY_NAME,
+        passwordHash: hashedPassword,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+    
+    console.log("Admin user created:", admin.email);
+  } catch (error) {
+    console.error("Error creating admin:", error.message);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+createAdmin();
+ADMIN_SCRIPT
   
   if command -v pnpm &> /dev/null; then
     pnpm exec node /tmp/create-admin.js
@@ -452,11 +438,11 @@ EOFADMIN
   print_success "Admin user created"
 }
 
-# Build application
+# Build app
 build_app() {
   print_header "Building Application"
   
-  # Load environment variables for build
+  # Load environment variables
   if [ -f .env.local ]; then
     set -a
     source .env.local
@@ -478,130 +464,81 @@ build_app() {
   print_success "Application built successfully"
 }
 
-# Setup SSL (optional)
+# Setup SSL
 setup_ssl() {
-  if [ "$USE_SSL" = "true" ] && [[ "$DOMAIN" == *.*.* ]]; then
-    print_header "Setting Up SSL Certificate"
-    
-    if ! command -v certbot &> /dev/null; then
-      print_info "certbot not found, skipping SSL setup"
-      print_info "To setup SSL later, run: sudo certbot certonly --standalone -d $DOMAIN"
-      return
-    fi
-    
-    print_info "Generating SSL certificate for $DOMAIN..."
-    sudo certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos --email "${ADMIN_EMAIL}"
-    
-    if [ $? -eq 0 ]; then
-      print_success "SSL certificate created successfully"
-      print_info "Certificate location: /etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
-      print_info "Key location: /etc/letsencrypt/live/${DOMAIN}/privkey.pem"
-    fi
-  fi
+  print_header "SSL Setup"
+  print_info "SSL configuration can be managed through your domain provider"
+  print_success "SSL setup skipped"
 }
 
 # Create startup script
 create_startup_script() {
   print_header "Creating Startup Script"
   
-  cat > start.sh << 'EOF'
-#!/bin/bash
+  # Create systemd service
+  cat > /etc/systemd/system/zwscloud.service << EOF
+[Unit]
+Description=ZWS Cloud Service
+After=network.target
 
-# Load environment
-if [ -f .env.local ]; then
-  export $(cat .env.local | grep -v '^#' | xargs)
-fi
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/zwscloud
+Environment="NODE_ENV=production"
+Environment="PATH=/root/.local/share/pnpm:$PATH"
+ExecStart=/usr/local/bin/node server.js
+Restart=always
+RestartSec=10
 
-# Start Next.js in production
-if command -v pnpm &> /dev/null; then
-  pnpm start
-else
-  npm start
-fi
+[Install]
+WantedBy=multi-user.target
 EOF
-
-  chmod +x start.sh
-  print_success "Startup script created"
+  
+  systemctl daemon-reload
+  systemctl enable zwscloud
+  
+  print_success "Systemd service created"
 }
 
 # Verify installation
 verify_installation() {
   print_header "Verifying Installation"
   
-  print_info "Checking files..."
-  
-  local files_ok=true
-  
-  if [ ! -f "package.json" ]; then
-    print_error "package.json not found"
-    files_ok=false
-  else
-    print_success "package.json found"
-  fi
-  
-  if [ ! -f ".env.local" ]; then
-    print_error ".env.local not found"
-    files_ok=false
-  else
-    print_success ".env.local configured"
-  fi
-  
-  if [ ! -d "node_modules" ]; then
-    print_error "node_modules not found"
-    files_ok=false
-  else
-    print_success "Dependencies installed"
-  fi
-  
   if [ ! -d ".next" ]; then
-    print_error "Application not built"
-    files_ok=false
-  else
-    print_success "Application built"
-  fi
-  
-  if [ "$files_ok" = false ]; then
-    print_error "Installation verification failed"
+    print_error "Build directory .next not found"
     return 1
   fi
   
-  print_success "Installation verification passed"
+  if [ ! -f ".env.local" ]; then
+    print_error "Environment file not found"
+    return 1
+  fi
+  
+  print_success "Installation verified"
   return 0
 }
 
-# Print startup instructions
+# Print final instructions
 print_instructions() {
-  print_header "Installation Complete!"
+  print_header "Installation Complete"
   
   echo ""
-  echo -e "${GREEN}Your ZWS Cloud application is ready to start!${NC}"
-  echo ""
   echo -e "${YELLOW}Next Steps:${NC}"
-  echo ""
-  echo "1. Start the application:"
-  echo -e "   ${BLUE}./start.sh${NC}"
-  echo "   or"
-  echo -e "   ${BLUE}pnpm start${NC}"
-  echo ""
-  echo "2. Access the application:"
-  echo -e "   ${BLUE}https://${DOMAIN}${NC}"
-  echo ""
-  echo "3. Admin Login Credentials:"
-  echo -e "   ${BLUE}Email:    ${ADMIN_EMAIL}${NC}"
-  echo -e "   ${BLUE}Password: (the password you entered)${NC}"
+  echo "  1. Start the service: sudo systemctl start zwscloud"
+  echo "  2. Check status: sudo systemctl status zwscloud"
+  echo "  3. View logs: sudo journalctl -u zwscloud -f"
+  echo "  4. Access at: https://${DOMAIN}"
   echo ""
   echo -e "${YELLOW}Configuration Details:${NC}"
-  echo -e "   Domain:          ${BLUE}${DOMAIN}${NC}"
-  echo -e "   Payment Gateway: ${BLUE}${PAYMENT_GATEWAY}${NC}"
-  echo -e "   Database Type:   ${BLUE}${DATABASE_TYPE}${NC}"
+  echo "  Admin Email: ${ADMIN_EMAIL}"
+  echo "  Admin Password: ${ADMIN_PASSWORD}"
+  echo "  Domain: ${DOMAIN}"
   echo ""
   echo -e "${YELLOW}Important Files:${NC}"
-  echo -e "   .env.local       - Environment configuration"
-  echo -e "   start.sh         - Startup script"
-  echo ""
-  echo -e "${YELLOW}Documentation:${NC}"
-  echo -e "   INTEGRATION_SETUP.md - Integration setup guide"
-  echo -e "   IMPLEMENTATION_SUMMARY.md - Feature overview"
+  echo "  Config: /root/zwscloud/.env.local"
+  echo "  Service: /etc/systemd/system/zwscloud.service"
+  echo "  Logs: journalctl -u zwscloud"
   echo ""
 }
 
@@ -620,12 +557,13 @@ main() {
   get_setup_mode
   echo ""
   
-  # STEP 3: Get other configuration
+  # STEP 3: Get configuration
   get_configuration
   echo ""
   
-  # STEP 4: Prerequisites
+  # STEP 4: Check prerequisites
   check_prerequisites
+  detect_os
   
   # STEP 5: Setup repo
   setup_repo
@@ -666,7 +604,5 @@ main() {
   fi
 }
 
-# Run main if not sourced
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  main "$@"
-fi
+# Run main
+main "$@"
