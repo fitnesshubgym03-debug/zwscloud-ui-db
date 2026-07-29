@@ -1,60 +1,112 @@
 # ZWS Cloud - Complete Installation & Setup
 
-## ⚡ Quick Installation (One Command)
+## ⚡ Quick Installation (Choose Your Path)
 
-Get ZWS Cloud up and running with a single command - **no prerequisites needed!**
+Get ZWS Cloud up and running - pick the installer that fits your needs:
 
-### Fully Automated Setup (Recommended) ⭐
+### 🎯 Local Development (Recommended) ⭐
+**Perfect for getting started quickly:**
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install-auto.sh)
+bash install-clean.sh
 ```
+- ✅ Auto-detects OS (Ubuntu, Debian, CentOS, RHEL, macOS)
+- ✅ Installs Node.js & PostgreSQL
+- ✅ Creates database automatically
+- ✅ Generates .env.local with all config
+- ✅ Runs migrations & builds app
+- ✅ Ready in ~10 minutes
 
-**This automatically installs everything:**
-- ✅ Node.js 20 LTS, npm, pnpm
-- ✅ Git, curl, openssl
-- ✅ Clones repository
-- ✅ Prompts for configuration
-- ✅ Sets up database
-- ✅ Creates admin user
-- ✅ Builds application
-- ✅ Works on Ubuntu, Debian, CentOS, Fedora, macOS
+**See [INSTALL_README.md](./INSTALL_README.md) for quick start**
 
-**See [AUTOMATED_INSTALL.md](./AUTOMATED_INSTALL.md) for detailed guide**
-
-### Interactive Setup
+### ⚙️ Interactive Configuration
+**Need more control? Use interactive prompts:**
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install.sh)
+bash install-auto.sh
 ```
-*Requires Node.js and npm already installed*
+- ✅ Choose between auto/existing PostgreSQL
+- ✅ Custom admin credentials
+- ✅ Configure all settings interactively
+- ✅ Optional systemd service setup
 
-### Quick Setup with Defaults
+### 🚀 Production Deployment (One Command)
+**Fully automated production setup:**
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/quick-setup.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/fitnesshubgym03-debug/zwscloud-ui-db/main/install-unified.sh)
 ```
-*Fast setup for development*
+- ✅ Complete automation (no prompts)
+- ✅ Creates systemd service for auto-start
+- ✅ Generates all credentials automatically
+- ✅ Production-ready configuration
+- ✅ Works on Ubuntu, Debian, CentOS, RHEL
 
-**For detailed setup options, see [INSTALL.md](./INSTALL.md)**
+### 🔧 Advanced Setup
+**Full control over every step:**
+```bash
+bash install.sh
+```
+- ✅ Step-by-step configuration
+- ✅ SSL/domain setup
+- ✅ Custom paths and settings
+- ✅ For experienced users
+
+**For detailed setup options, see [INSTALL_GUIDE.md](./INSTALL_GUIDE.md)**
+
+### 🐳 Docker Setup (Optional)
+**Deploy using Docker for complete isolation:**
+```bash
+docker compose up -d
+```
+See [DOCKER_README.md](./DOCKER_README.md) for Docker-specific instructions.
 
 ---
 
 ## Table of Contents
 
-1. [Quick Installation](#-quick-installation-one-command)
-2. [Server Requirements](#server-requirements)
-2. [Download from GitHub](#download-from-github)
-3. [System Package Installation](#system-package-installation)
-4. [Environment Configuration](#environment-configuration)
-5. [Database Setup](#database-setup)
-6. [Install Dependencies](#install-dependencies)
-7. [Build Application](#build-application)
-8. [Start Application](#start-application)
-9. [Nginx Reverse Proxy](#nginx-reverse-proxy)
-10. [SSL Certificate Setup](#ssl-certificate-setup)
-11. [Set Permissions](#set-permissions)
-12. [First Run Verification](#first-run-verification)
-13. [Update and Redeploy](#update-and-redeploy)
-14. [Logs and Debugging](#logs-and-debugging)
-15. [Troubleshooting](#troubleshooting)
+### Installation
+1. [Quick Installation](#-quick-installation-choose-your-path)
+2. [Installation Resources](#installation-resources)
+3. [Server Requirements](#server-requirements)
+
+### Setup & Configuration
+4. [Download from GitHub](#download-from-github)
+5. [System Package Installation](#system-package-installation)
+6. [Environment Configuration](#environment-configuration)
+7. [Database Setup](#database-setup)
+
+### Build & Deploy
+8. [Install Dependencies](#install-dependencies)
+9. [Build Application](#build-application)
+10. [Start Application](#start-application)
+11. [Nginx Reverse Proxy](#nginx-reverse-proxy)
+12. [SSL Certificate Setup](#ssl-certificate-setup)
+
+### Operations
+13. [Set Permissions](#set-permissions)
+14. [First Run Verification](#first-run-verification)
+15. [Update and Redeploy](#update-and-redeploy)
+16. [Logs and Debugging](#logs-and-debugging)
+17. [Troubleshooting](#troubleshooting)
+
+---
+
+## Installation Resources
+
+Quick reference for all installation methods:
+
+| Use Case | Script | Difficulty | Time |
+|----------|--------|-----------|------|
+| **Local Dev** | `bash install-clean.sh` | Easy | ~10 min |
+| **Interactive** | `bash install-auto.sh` | Medium | ~15 min |
+| **Production** | `bash <(curl ... install-unified.sh)` | Medium | ~15 min |
+| **Advanced** | `bash install.sh` | Hard | ~20 min |
+
+For detailed guides:
+- **Development**: [INSTALL_README.md](./INSTALL_README.md) - Quick reference
+- **Complete Guide**: [INSTALL_GUIDE.md](./INSTALL_GUIDE.md) - Comprehensive troubleshooting
+- **Updates**: [README_UPDATES.md](./README_UPDATES.md) - Update procedures
+- **Production**: [README_PRODUCTION.md](./README_PRODUCTION.md) - Production deployment
+
+---
 
 ---
 
