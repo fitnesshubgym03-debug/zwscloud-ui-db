@@ -155,21 +155,9 @@ get_configuration() {
   # Admin Display Name
   ADMIN_DISPLAY_NAME=$(prompt_input "Admin display name" "Administrator")
   
-  # Payment Gateway
-  print_info "Select payment gateway:"
-  echo "  1) Razorpay (recommended for automatic recurring billing)"
-  echo "  2) Cashfree"
-  GATEWAY=$(prompt_input "Choice [1-2]" "1")
-  
-  if [ "$GATEWAY" = "2" ]; then
-    PAYMENT_GATEWAY="cashfree"
-    CASHFREE_APP_ID=$(prompt_input "Cashfree App ID" "")
-    CASHFREE_SECRET_KEY=$(prompt_password "Cashfree Secret Key")
-  else
-    PAYMENT_GATEWAY="razorpay"
-    RAZORPAY_KEY_ID=$(prompt_input "Razorpay Key ID" "")
-    RAZORPAY_KEY_SECRET=$(prompt_password "Razorpay Key Secret")
-  fi
+  echo ""
+  print_info "Payment gateway can be configured later in the admin panel"
+  PAYMENT_GATEWAY="razorpay"
   
   # Domain Configuration
   print_info "Domain Configuration:"
@@ -184,23 +172,36 @@ get_configuration() {
     print_info "Self-signed SSL certificate will be generated"
   fi
   
-  # Database
-  if prompt_yn "Use PostgreSQL? (recommended)"; then
+  # Database Configuration
+  echo ""
+  print_info "PostgreSQL Database Setup:"
+  echo "  1) Auto-install PostgreSQL (generates random credentials)"
+  echo "  2) Use existing PostgreSQL (provide connection details)"
+  DB_CHOICE=$(prompt_input "Choice [1-2]" "1")
+  
+  if [ "$DB_CHOICE" = "2" ]; then
     DATABASE_TYPE="postgres"
+    print_info "Enter your PostgreSQL connection details:"
     DB_HOST=$(prompt_input "Database host" "localhost")
     DB_PORT=$(prompt_input "Database port" "5432")
     DB_NAME=$(prompt_input "Database name" "zwscloud")
     DB_USER=$(prompt_input "Database user" "postgres")
     DB_PASSWORD=$(prompt_password "Database password")
     DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    print_success "Using existing PostgreSQL database"
   else
-    DATABASE_TYPE="mysql"
-    DB_HOST=$(prompt_input "Database host" "localhost")
-    DB_PORT=$(prompt_input "Database port" "3306")
-    DB_NAME=$(prompt_input "Database name" "zwscloud")
-    DB_USER=$(prompt_input "Database user" "root")
-    DB_PASSWORD=$(prompt_password "Database password")
-    DATABASE_URL="mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    DATABASE_TYPE="postgres"
+    DB_HOST="localhost"
+    DB_PORT="5432"
+    DB_NAME="zwscloud"
+    DB_USER="zwscloud_user"
+    # Generate random password
+    DB_PASSWORD=$(openssl rand -base64 32 | tr -d '=' | tr '+/' '-_')
+    DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    print_success "PostgreSQL will be auto-installed with random credentials"
+    print_info "Database user: $DB_USER"
+    print_info "Database name: $DB_NAME"
+    AUTO_INSTALL_DB=true
   fi
   
   # JWT Secret
@@ -226,25 +227,8 @@ DATABASE_URL="${DATABASE_URL}"
 # JWT
 JWT_SECRET="${JWT_SECRET}"
 
-# Payment Gateway
-DEFAULT_PAYMENT_GATEWAY="${PAYMENT_GATEWAY}"
-EOF
-
-  if [ "$PAYMENT_GATEWAY" = "razorpay" ]; then
-    cat >> .env.local << EOF
-RAZORPAY_KEY_ID="${RAZORPAY_KEY_ID}"
-RAZORPAY_KEY_SECRET="${RAZORPAY_KEY_SECRET}"
-RAZORPAY_MODE="test"
-EOF
-  else
-    cat >> .env.local << EOF
-CASHFREE_APP_ID="${CASHFREE_APP_ID}"
-CASHFREE_SECRET_KEY="${CASHFREE_SECRET_KEY}"
-CASHFREE_MODE="test"
-EOF
-  fi
-
-  cat >> .env.local << EOF
+# Payment Gateway (configure in admin panel)
+DEFAULT_PAYMENT_GATEWAY="razorpay"
 
 # Application
 NEXT_PUBLIC_APP_URL="https://${DOMAIN}"
@@ -253,6 +237,54 @@ NODE_ENV="production"
 EOF
 
   print_success "Environment file created at .env.local"
+}
+
+# Auto-install PostgreSQL
+auto_install_postgres() {
+  print_header "Auto-Installing PostgreSQL"
+  
+  if command -v psql &> /dev/null; then
+    print_info "PostgreSQL already installed"
+    return
+  fi
+  
+  print_info "Installing PostgreSQL..."
+  
+  if [[ "$OS" == "ubuntu" ]] || [[ "$OS" == "debian" ]]; then
+    sudo apt-get update > /dev/null 2>&1
+    sudo apt-get install -y postgresql postgresql-contrib > /dev/null 2>&1
+    print_success "PostgreSQL installed"
+  elif [[ "$OS" == "centos" ]] || [[ "$OS" == "fedora" ]]; then
+    sudo yum install -y postgresql-server postgresql-contrib > /dev/null 2>&1
+    sudo postgresql-setup initdb || true
+    print_success "PostgreSQL installed"
+  else
+    print_info "Please install PostgreSQL manually"
+    return
+  fi
+  
+  # Start PostgreSQL service
+  if [[ "$OS" == "ubuntu" ]] || [[ "$OS" == "debian" ]]; then
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+  elif [[ "$OS" == "centos" ]] || [[ "$OS" == "fedora" ]]; then
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+  fi
+  
+  print_success "PostgreSQL service started"
+  
+  # Create database and user
+  print_info "Creating database and user..."
+  sudo -u postgres psql << PSQL_EOF
+CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD' CREATEDB;
+CREATE DATABASE $DB_NAME OWNER $DB_USER;
+GRANT CONNECT ON DATABASE $DB_NAME TO $DB_USER;
+GRANT USAGE ON SCHEMA public TO $DB_USER;
+GRANT CREATE ON SCHEMA public TO $DB_USER;
+PSQL_EOF
+  
+  print_success "Database '$DB_NAME' and user '$DB_USER' created"
 }
 
 # Install dependencies
@@ -499,6 +531,12 @@ main() {
   check_prerequisites
   setup_repo
   get_configuration
+  
+  # Auto-install PostgreSQL if selected
+  if [ "$AUTO_INSTALL_DB" = true ]; then
+    auto_install_postgres
+  fi
+  
   create_env_file
   install_dependencies
   setup_database
